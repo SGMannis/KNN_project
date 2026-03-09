@@ -5,10 +5,39 @@ from pero_ocr import ALTOMatch
 import json
 import os
 import argparse
+from pydantic import BaseModel
+from typing import Optional, List, Tuple
 
 ##################################################
 # Match OCR and annotations and create dataset
 ##################################################
+
+class Chapter(BaseModel):
+    name: str
+    chapter_number: Optional[str] = None
+    page_number: Optional[str] = None
+    description: Optional[str] = None
+    polygon: Optional[List[Tuple[int, int]]] = None
+    subchapters: Optional[List['Chapter']] = []
+
+
+
+def get_corner_points(detection) -> List[Tuple[int, int]]:
+    if not detection:
+        return []
+        
+    bbox = detection.detector_parser_annotated_bounding_box
+    x, y = int(bbox.x), int(bbox.y)
+    w, h = int(bbox.width), int(bbox.height)
+    
+    # Top-Left and Bottom-Right 
+    return [(x , y), (x + w, y + h)]
+
+
+
+def get_text_safe(detection) -> Optional[str]:
+    return detection.get_text() if detection else None
+
 
 
 def group_items_on_page(matched_page):
@@ -70,7 +99,7 @@ def group_items_on_page(matched_page):
             "title_detection": chap,
             "page_number_detection": None,
             "chapter_number_detection": None,
-            "subheading": None,
+            "subheading_detection": None,
             "items": [], 
             "_y_top": y_chap_top,
             "_y_center": y_chap_center,
@@ -150,7 +179,7 @@ def group_items_on_page(matched_page):
         page_detection = None
         chap_num_detection = None
         
-        # Looking for the page number (Relation -> Geometry)
+        # Pairing the page number for the subchapter (based on relation annotation)
         if id_o in relation_to_from and relation_to_from[id_o] in detection_by_id:
             target_detection = detection_by_id[relation_to_from[id_o]]
             if target_detection.get_class() == "cislo strany": 
@@ -158,21 +187,24 @@ def group_items_on_page(matched_page):
                 # remove from list
                 if target_detection in page_numbers:
                     page_numbers.remove(target_detection)
-                
+        
+        # Pairing the page number for the subchapter (based on Geometry)
+        # TODO maybe delete and rely only on annotation
         if page_detection is None:
             for page in page_numbers:
                 bbox_page = page.detector_parser_annotated_bounding_box 
                 y_page = bbox_page.y + bbox_page.height
-                # subheading and its page number (bottoms) are in approx. same height and page number is to the right of the subheading
+                # subchapter and its page number (bottoms) are in approx. same height and page number is to the right of the subchapter
                 if abs(y_o_heading_bottom - y_page) <= n_of_pixels_spare and bbox_page.x > bbox_o.x: 
                     page_detection = page
                     # remove from list
                     page_numbers.remove(page)
                     break
 
+        # Pairing the subchapter number
         for c_chap in chapter_numbers:
             bbox_c = c_chap.detector_parser_annotated_bounding_box
-            # subheading and its number are in approx. same height and subheading number is to the left of the subheading
+            # subchapter and its number are in approx. same height and subchapter number is to the left of the subchapter
             if abs(y_o_heading_top - bbox_c.y) <= n_of_pixels_spare and bbox_c.x < bbox_o.x:
                 chap_num_detection = c_chap
                 # remove from list
@@ -197,7 +229,7 @@ def group_items_on_page(matched_page):
         parent = find_parent_chapter(y_sub)
 
         if parent is not orphans:
-            parent["subheading"] = subheading
+            parent["subheading_detection"] = subheading
 
     # ==========================================
     # Sorting (and cleanup) of items inside chapters
@@ -218,53 +250,37 @@ def group_items_on_page(matched_page):
 
 
 
-def process_detection(detection):
-    # If we found nothing (e.g., missing page number), return None
-    if detection is None:
-        return None
-        
-    # Grab the bounding box
-    # bbox = detection.detector_parser_annotated_bounding_box
-    
-    return {
-        "class": detection.get_class(), 
-        "text": detection.get_text(), 
-        # "bbox": {
-        #     "x": bbox.x, 
-        #     "y": bbox.y, 
-        #     "width": bbox.width, 
-        #     "height": bbox.height 
-        # }
-    }
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Annotations, OCR output and matched output")
 
-
-
-if __name__ == "__main__":
-
-    argparser = argparse.ArgumentParser(description="Annotations, OCR output and matched output")
-
-    argparser.add_argument(
+    parser.add_argument(
         "-j", "--json_annotations", 
         type=str,
         default="data/project-38-at-2026-03-04-11-19-c8d8673e.json",
         help="path to the exported json annotations file"
     )
 
-    argparser.add_argument(
+    parser.add_argument(
         "-c", "--ocr_dir",
         type=str,
         default="data/digilinka_obsahy.alto", 
         help="path to the OCR output directory"
     )
 
-    argparser.add_argument(
+    parser.add_argument(
         "-o", "--output_dir", 
         type=str,
         default="out/",
         help="path to the output directory"
     )
 
-    args = argparser.parse_args()
+    return parser.parse_args()
+
+
+
+if __name__ == "__main__":
+
+    args = parse_arguments()
         
     # logging.basicConfig(level=logging.INFO)           # logging
     logging.basicConfig(level=logging.CRITICAL + 1)     # quiet mode
@@ -295,29 +311,46 @@ if __name__ == "__main__":
         
         # Prepare clean data for JSON here
         clean_page_data = []
-        
+
+
         for group in rich_groups:
-            # A) Translate the main chapter objects
-            clean_group = {
-                # "record_type": group.get("record_type"),
-                "title": process_detection(group.get("title_detection")),
-                "page_number": process_detection(group.get("page_number_detection")),
-                "chapter_number": process_detection(group.get("chapter_number_detection")),
-                "subheading": process_detection(group.get("subheading")),
-                "items": []
-            }
+            chapter_name = get_text_safe(group.get("title_detection")) or "No chapter"
             
-            # B) Translate nested items (your "other headings")
+            # get the corners of bounding boxes
+            main_poly = []
+            main_poly.extend(get_corner_points(group.get("title_detection")))
+            main_poly.extend(get_corner_points(group.get("chapter_number_detection")))
+            main_poly.extend(get_corner_points(group.get("page_number_detection")))
+            main_poly.extend(get_corner_points(group.get("subheading_detection")))
+
+            chapter = Chapter(
+                name=chapter_name,
+                chapter_number=get_text_safe(group.get("chapter_number_detection")),
+                page_number=get_text_safe(group.get("page_number_detection")),
+                description=get_text_safe(group.get("subheading_detection")), # Text z podnadpisu
+                polygon=main_poly,
+                subchapters=[]
+            )
+
             for item in group.get("items", []):
-                clean_item = {
-                    # "record_type": item.get("record_type"),
-                    "title": process_detection(item.get("detection")),
-                    "page_number": process_detection(item.get("page_detection")),
-                    "chapter_number": process_detection(item.get("number_detection"))
-                }
-                clean_group["items"].append(clean_item)
+                item_det = item.get("detection")
+
+                # get the corners of bounding boxes
+                sub_poly = []
+                sub_poly.extend(get_corner_points(item_det))
+                sub_poly.extend(get_corner_points(item.get("number_detection")))
+                sub_poly.extend(get_corner_points(item.get("page_detection")))
                 
-            clean_page_data.append(clean_group)
+                subchapter = Chapter(
+                    name=get_text_safe(item_det),
+                    chapter_number=get_text_safe(item.get("number_detection")),
+                    page_number=get_text_safe(item.get("page_detection")),
+                    polygon=sub_poly
+                )
+                chapter.subchapters.append(subchapter)
+
+            clean_page_data.append(chapter.model_dump())
+
             
         # 3. SAVE THE FILE
         original_page = page.detector_parser_page 
