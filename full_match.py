@@ -4,12 +4,11 @@ from detector_parser import DetectorParser
 from pero_ocr import ALTOMatch
 import json
 import os
-
+import argparse
 
 ##################################################
 # Match OCR and annotations and create dataset
 ##################################################
-
 
 
 def group_items_on_page(matched_page):
@@ -58,11 +57,13 @@ def group_items_on_page(matched_page):
     resulting_groups = []
 
     # ==========================================
-    # STEP 2: Creating anchors (Chapters - "1")
+    # STEP 2: Creating anchors (Chapters)
     # ==========================================
     for chap in chapters:
         bbox_chap = chap.detector_parser_annotated_bounding_box 
-        y_chap = bbox_chap.y + (bbox_chap.height / 2) 
+        y_chap_top = bbox_chap.y
+        y_chap_center = bbox_chap.y + (bbox_chap.height / 2) 
+        y_chap_bottom = bbox_chap.y + bbox_chap.height 
         
         group = {
             "record_type": "1",
@@ -71,7 +72,9 @@ def group_items_on_page(matched_page):
             "chapter_number_detection": None,
             "subheading": None,
             "items": [], 
-            "_y": y_chap,
+            "_y_top": y_chap_top,
+            "_y_center": y_chap_center,
+            "_y_bottom": y_chap_bottom,
             "_x": bbox_chap.x, 
             "_id": bbox_chap.id 
         }
@@ -82,23 +85,31 @@ def group_items_on_page(matched_page):
             target_detection = detection_by_id[relation_to_from[id_chap]]
             if target_detection.get_class() == "cislo strany": 
                 group["page_number_detection"] = target_detection
+                # remove from list
+                if target_detection in page_numbers:
+                    page_numbers.remove(target_detection)
 
         # Pairing the page number for the chapter (based on Geometry)
-        if group["page_number_detection"] is None: # won't work if it's too far away
+        # TODO maybe delete and rely only on annotation
+        if group["page_number_detection"] is None:
             for page in page_numbers:
                 bbox_page = page.detector_parser_annotated_bounding_box 
-                y_page = bbox_page.y + (bbox_page.height / 2)
-                if abs(y_chap - y_page) <= n_of_pixels_spare and bbox_page.x > group["_x"]: 
+                y_page = bbox_page.y + bbox_page.height
+                # chapter name and its page number (bottoms) are in approx. same height and chapter page number is to the right of the chapter name
+                if abs(group["_y_bottom"] - y_page) <= n_of_pixels_spare and bbox_page.x > group["_x"]: 
                     group["page_number_detection"] = page
+                    # remove from list
+                    page_numbers.remove(page)
                     break
     
         # Pairing the chapter number
-        # TODO it might be better to match by corners rather than centers
         for c_chap in chapter_numbers:
-            bbox_c = c_chap.detector_parser_annotated_bounding_box 
-            y_c = bbox_c.y + (bbox_c.height / 2) 
-            if abs(y_chap - y_c) <= n_of_pixels_spare and bbox_c.x < group["_x"]: 
+            bbox_c_chap = c_chap.detector_parser_annotated_bounding_box 
+            # chapter name and its number are in approx. same height and chapter number is to the left of the chapter name
+            if abs(group["_y_top"] - bbox_c_chap.y) <= n_of_pixels_spare and bbox_c_chap.x < group["_x"]: 
                 group["chapter_number_detection"] = c_chap
+                # remove from list
+                chapter_numbers.remove(c_chap)
                 break
         
         resulting_groups.append(group)
@@ -110,15 +121,15 @@ def group_items_on_page(matched_page):
         "page_number_detection": None,
         "chapter_number_detection": None,
         "items": [],
-        "_y": -1000 
+        "_y_center": -1000 
     }
 
     def find_parent_chapter(y_item):
         closest = None
         min_distance = float('inf')
         for group in resulting_groups:
-            if y_item > group["_y"]: 
-                distance = y_item - group["_y"]
+            if y_item > group["_y_center"]: 
+                distance = y_item - group["_y_center"]
                 if distance < min_distance:
                     min_distance = distance
                     closest = group
@@ -130,10 +141,12 @@ def group_items_on_page(matched_page):
     # ==========================================
     for o_heading in other_headings:
         bbox_o = o_heading.detector_parser_annotated_bounding_box 
-        y_o = bbox_o.y + (bbox_o.height / 2) 
+        y_o_heading_top = bbox_o.y
+        y_o_heading_center = bbox_o.y + (bbox_o.height / 2) 
+        y_o_heading_bottom = bbox_o.y + bbox_o.height
         id_o = bbox_o.id 
         
-        parent = find_parent_chapter(y_o)
+        parent = find_parent_chapter(y_o_heading_center)
         page_detection = None
         chap_num_detection = None
         
@@ -142,29 +155,36 @@ def group_items_on_page(matched_page):
             target_detection = detection_by_id[relation_to_from[id_o]]
             if target_detection.get_class() == "cislo strany": 
                 page_detection = target_detection
+                # remove from list
+                if target_detection in page_numbers:
+                    page_numbers.remove(target_detection)
                 
         if page_detection is None:
             for page in page_numbers:
                 bbox_page = page.detector_parser_annotated_bounding_box 
-                y_page = bbox_page.y + (bbox_page.height / 2) 
-                if abs(y_o - y_page) <= n_of_pixels_spare and bbox_page.x > bbox_o.x: 
+                y_page = bbox_page.y + bbox_page.height
+                # subheading and its page number (bottoms) are in approx. same height and page number is to the right of the subheading
+                if abs(y_o_heading_bottom - y_page) <= n_of_pixels_spare and bbox_page.x > bbox_o.x: 
                     page_detection = page
+                    # remove from list
+                    page_numbers.remove(page)
                     break
 
-        # TODO it might be better to match by corners rather than centers
         for c_chap in chapter_numbers:
             bbox_c = c_chap.detector_parser_annotated_bounding_box
-            y_c = bbox_c.y + (bbox_c.height / 2)
-            if abs(y_o - y_c) <= n_of_pixels_spare and bbox_c.x < bbox_o.x:
+            # subheading and its number are in approx. same height and subheading number is to the left of the subheading
+            if abs(y_o_heading_top - bbox_c.y) <= n_of_pixels_spare and bbox_c.x < bbox_o.x:
                 chap_num_detection = c_chap
+                # remove from list
+                chapter_numbers.remove(c_chap)
                 break
                     
         parent["items"].append({
             "record_type": "4",
-            "detection": o_heading,             # <--- Entire object
-            "page_detection": page_detection,   # <--- Entire object
-            "number_detection": chap_num_detection, # <--- Entire object
-            "_y": y_o
+            "detection": o_heading,
+            "page_detection": page_detection,
+            "number_detection": chap_num_detection,
+            "_y_center": y_o_heading_top
         })
 
     # ==========================================
@@ -186,7 +206,7 @@ def group_items_on_page(matched_page):
         resulting_groups.insert(0, orphans)
 
     for group in resulting_groups:
-        group["items"].sort(key=lambda p: p["_y"])
+        group["items"].sort(key=lambda p: p["_y_center"])
         
         # group.pop("_y", None)
         # group.pop("_x", None)
@@ -195,6 +215,7 @@ def group_items_on_page(matched_page):
         #     p.pop("_y", None)
 
     return resulting_groups
+
 
 
 def process_detection(detection):
@@ -217,69 +238,99 @@ def process_detection(detection):
     }
 
 
-# logging.basicConfig(level=logging.INFO)           # logging
-logging.basicConfig(level=logging.CRITICAL + 1)     # quiet mode
 
-# load json with annotations
-export_path = "data/project-38-at-2026-03-04-11-19-c8d8673e.json"               # hardcoded
-parser = DetectorParser()
-parser.parse_label_studio(export_path, run_checks=False)
+if __name__ == "__main__":
 
-# load OCR .xml data
-xml_dir = "data/digilinka_obsahy.alto"                                          # hardcoded
+    argparser = argparse.ArgumentParser(description="Annotations, OCR output and matched output")
 
-# match json with xmls
-matcher = ALTOMatch(detector_parser=parser, alto_export_dir=xml_dir)
-print("Matching text with annotations...")
-matcher.match()
+    argparser.add_argument(
+        "-j", "--json_annotations", 
+        type=str,
+        default="data/project-38-at-2026-03-04-11-19-c8d8673e.json",
+        help="path to the exported json annotations file"
+    )
 
-output_dir = "full_match_jsons"
-os.makedirs(output_dir, exist_ok=True)
+    argparser.add_argument(
+        "-c", "--ocr_dir",
+        type=str,
+        default="data/digilinka_obsahy.alto", 
+        help="path to the OCR output directory"
+    )
 
-print("Creating files")
-# Iterate through all matched pages
-for page in matcher.matched_pages:
-    # Call your super function
-    rich_groups = group_items_on_page(page)
-    
-    # Prepare clean data for JSON here
-    clean_page_data = []
-    
-    for group in rich_groups:
-        # A) Translate the main chapter objects
-        clean_group = {
-            # "record_type": group.get("record_type"),
-            "title": process_detection(group.get("title_detection")),
-            "page_number": process_detection(group.get("page_number_detection")),
-            "chapter_number": process_detection(group.get("chapter_number_detection")),
-            "subheading": process_detection(group.get("subheading")),
-            "items": []
-        }
+    argparser.add_argument(
+        "-o", "--output_dir", 
+        type=str,
+        default="out/",
+        help="path to the output directory"
+    )
+
+    args = argparser.parse_args()
         
-        # B) Translate nested items (your "other headings")
-        for item in group.get("items", []):
-            clean_item = {
-                # "record_type": item.get("record_type"),
-                "title": process_detection(item.get("detection")),
-                "page_number": process_detection(item.get("page_detection")),
-                "chapter_number": process_detection(item.get("number_detection"))
+    # logging.basicConfig(level=logging.INFO)           # logging
+    logging.basicConfig(level=logging.CRITICAL + 1)     # quiet mode
+
+    # load json with annotations
+    export_path = args.json_annotations
+    parser = DetectorParser()
+    parser.parse_label_studio(export_path, run_checks=False)
+
+    # load OCR .xml data
+    ocr_dir = args.ocr_dir
+
+    # match json with xmls
+    matcher = ALTOMatch(detector_parser=parser, alto_export_dir=ocr_dir)
+    print("Matching text with annotations...")
+    matcher.match()
+
+    # output directory
+    output_dir = args.output_dir
+    os.makedirs(output_dir, exist_ok=True)
+
+
+    print("Creating files")
+    # Iterate through all matched pages
+    for page in matcher.matched_pages:
+        # Call your super function
+        rich_groups = group_items_on_page(page)
+        
+        # Prepare clean data for JSON here
+        clean_page_data = []
+        
+        for group in rich_groups:
+            # A) Translate the main chapter objects
+            clean_group = {
+                # "record_type": group.get("record_type"),
+                "title": process_detection(group.get("title_detection")),
+                "page_number": process_detection(group.get("page_number_detection")),
+                "chapter_number": process_detection(group.get("chapter_number_detection")),
+                "subheading": process_detection(group.get("subheading")),
+                "items": []
             }
-            clean_group["items"].append(clean_item)
             
-        clean_page_data.append(clean_group)
+            # B) Translate nested items (your "other headings")
+            for item in group.get("items", []):
+                clean_item = {
+                    # "record_type": item.get("record_type"),
+                    "title": process_detection(item.get("detection")),
+                    "page_number": process_detection(item.get("page_detection")),
+                    "chapter_number": process_detection(item.get("number_detection"))
+                }
+                clean_group["items"].append(clean_item)
+                
+            clean_page_data.append(clean_group)
+            
+        # 3. SAVE THE FILE
+        original_page = page.detector_parser_page 
         
-    # 3. SAVE THE FILE
-    original_page = page.detector_parser_page 
-    
-    # Generate filename based on the image (e.g., document_01.json)
-    if original_page.image_filename:
-        file_name = os.path.splitext(original_page.image_filename)[0] + ".json"
-    else:
-        file_name = f"{original_page.id}.json" 
+        # Generate filename based on the image (e.g., document_01.json)
+        if original_page.image_filename:
+            file_name = os.path.splitext(original_page.image_filename)[0] + ".json"
+        else:
+            file_name = f"{original_page.id}.json" 
+            
+        file_path = os.path.join(output_dir, file_name)
         
-    file_path = os.path.join(output_dir, file_name)
-    
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(clean_page_data, f, ensure_ascii=False, indent=4)
-        
-print(f"Done")
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(clean_page_data, f, ensure_ascii=False, indent=4)
+            
+    print(f"Done")
