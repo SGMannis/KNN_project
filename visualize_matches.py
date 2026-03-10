@@ -61,8 +61,8 @@ def draw_chapter(img, chapter):
                 cv2.rectangle(img, p1, p2, color, 2)
                 
                 # Optionally adding label with field name
-                cv2.putText(img, field, (p1[0], p1[1] - 5), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+                # cv2.putText(img, field, (p1[0], p1[1] - 5), 
+                #             cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
                 
                 point_idx += 2
     
