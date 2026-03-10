@@ -1,3 +1,4 @@
+import argparse
 import cv2
 import json
 import os
@@ -10,11 +11,37 @@ OUTPUT_DIR = "out_vis/"
 
 # Color definition for separate elements.
 COLORS = {
-    "name": (0, 0, 255),           # Červená
-    "chapter_number": (255, 0, 0), # Modrá
-    "page_number": (0, 255, 0),    # Zelená
-    "description": (0, 255, 255)   # Žlutá
+    "name": (0, 0, 255),           # red
+    "chapter_number": (255, 0, 0), # blue
+    "page_number": (0, 255, 0),    # green
+    "description": (0, 255, 255)   # yellow
 }
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Visualization of matched output")
+
+    parser.add_argument(
+        "-j", "--json_dir", 
+        type=str,
+        default=JSON_DIR,
+        help="path to the fully matched json directory"
+    )
+
+    parser.add_argument(
+        "-i", "--image_dir",
+        type=str,
+        default=IMAGE_DIR, 
+        help="path to the source image directory"
+    )
+
+    parser.add_argument(
+        "-o", "--output_dir", 
+        type=str,
+        default=OUTPUT_DIR,
+        help="path to the output directory"
+    )
+
+    return parser.parse_args()
 
 def draw_chapter(img, chapter):
     """Rekurzivně vykreslí kapitolu a její podkapitoly."""
@@ -23,7 +50,7 @@ def draw_chapter(img, chapter):
     
     point_idx = 0
     for field in fields_order:
-        # If field exists (is not null), we take another two point from polygon
+        # If field exists (is not null), we take another two points from polygon
         if chapter.get(field) is not None:
             if point_idx + 1 < len(polygon):
                 p1 = tuple(polygon[point_idx])
@@ -44,15 +71,19 @@ def draw_chapter(img, chapter):
         draw_chapter(img, sub)
 
 def main():
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-        print(f"Created folder: {OUTPUT_DIR}")
+   # Parse CLI arguments
+    args = parse_arguments()
 
-    # Find all JSON files in JSON_DIR folder
-    json_files = glob.glob(os.path.join(JSON_DIR, "*.json"))
+    # Ensure output directory exists
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
+        print(f"Created folder: {args.output_dir}")
+
+    # Find all JSON files using the path from arguments
+    json_files = glob.glob(os.path.join(args.json_dir, "*.json"))
     
     if not json_files:
-        print("No JSON files found in", JSON_DIR)
+        print(f"No JSON files found in {args.json_dir}")
         return
 
     for json_path in json_files:
@@ -61,9 +92,9 @@ def main():
         with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         
-        # Getting image name - same name as JSON expected, except with .jpg extension
+        # Getting image name - same name as JSON expected, but looking in args.image_dir
         base_name = os.path.splitext(os.path.basename(json_path))[0]
-        img_path = os.path.join(IMAGE_DIR, base_name + ".jpg")
+        img_path = os.path.join(args.image_dir, base_name + ".jpg")
         
         if not os.path.exists(img_path):
             print(f" WARNING: Image not found: {img_path}")
@@ -74,12 +105,12 @@ def main():
             print(f" FAIL: Could not read image {img_path}")
             continue
 
-        # Go though all the main entities in JSON
+        # Go through all the main entities in JSON
         for entry in data:
             draw_chapter(img, entry)
             
-        # Saving output
-        out_path = os.path.join(OUTPUT_DIR, base_name + "_vis.jpg")
+        # Saving output to the path from arguments
+        out_path = os.path.join(args.output_dir, base_name + "_vis.jpg")
         cv2.imwrite(out_path, img)
         print(f" Saved to: {out_path}")
 
