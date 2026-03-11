@@ -11,15 +11,16 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ALTOWord:
-    def __init__(self, x: float, y: float, width: float, height: float, content: str):
+    def __init__(self, x: float, y: float, width: float, height: float, content: str, confidence: Optional[float] = None):
         self.x = x
         self.y = y
         self.width = width
         self.height = height
         self.content = content
+        self.confidence = confidence
 
     def __repr__(self):
-        return f"ALTOWord(x={self.x}, y={self.y}, width={self.width}, height={self.height}, content={self.content})"
+        return f"ALTOWord(x={self.x}, y={self.y}, width={self.width}, height={self.height}, content={self.content}, confidence={self.confidence})"
 
 @dataclass
 class ALTOPage:
@@ -82,13 +83,15 @@ class ALTOExport:
             y = float(string_element.attrib["VPOS"])
             width = float(string_element.attrib["WIDTH"])
             height = float(string_element.attrib["HEIGHT"])
-
+            confidence = float(string_element.attrib["WC"]) if "WC" in string_element.attrib else None
+            
             alto_word = ALTOWord(
                 x=x,
                 y=y,
                 width=width,
                 height=height,
-                content=content
+                content=content,
+                confidence=confidence
             )
 
             alto_words.append(alto_word)
@@ -116,6 +119,9 @@ class ALTOMatchedDetection:
 
     def get_text(self):
         return " ".join([word.content for word in self.alto_words])
+    
+    def get_word_confidences(self):
+        return [word.confidence for word in self.alto_words]
 
     def get_confidence(self):
         return self.detector_parser_annotated_bounding_box.conf
@@ -151,7 +157,7 @@ class ALTOMatchedPage:
                                f"detection id: {detector_parser_annotated_bounding_box.id}, "
                                f"bbox: {detector_parser_annotated_bounding_box}")
                 # continue
-                
+
             matched_detection = ALTOMatchedDetection(detector_parser_annotated_bounding_box, matched_words)
             matched_detections.append(matched_detection)
         self.matched_detections = matched_detections
