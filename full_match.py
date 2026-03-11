@@ -13,30 +13,38 @@ from typing import Optional, List, Tuple
 ##################################################
 
 class Chapter(BaseModel):
-    name: str
+    name: Optional[str] = None
     chapter_number: Optional[str] = None
     page_number: Optional[str] = None
     description: Optional[str] = None
-    polygon: Optional[List[Tuple[int, int]]] = None
+
+    name_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
+    chapter_number_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
+    page_number_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
+    description_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
+
     subchapters: Optional[List['Chapter']] = []
 
 
 
-def get_corner_points(detection) -> List[Tuple[int, int]]:
+def get_corner_points(detection) -> Tuple[Tuple[int, int], Tuple[int, int]]:
     if not detection:
-        return []
+        return None
         
     bbox = detection.detector_parser_annotated_bounding_box
     x, y = int(bbox.x), int(bbox.y)
     w, h = int(bbox.width), int(bbox.height)
     
     # Top-Left and Bottom-Right 
-    return [(x , y), (x + w, y + h)]
+    return ((x , y), (x + w, y + h))
 
 
 
 def get_text_safe(detection) -> Optional[str]:
-    return detection.get_text() if detection else None
+    if not detection:
+        return None
+    text = detection.get_text().strip()    
+    return text if text != "" else None
 
 
 
@@ -119,7 +127,6 @@ def group_items_on_page(matched_page):
                     page_numbers.remove(target_detection)
 
         # Pairing the page number for the chapter (based on Geometry)
-        # TODO maybe delete and rely only on annotation
         if group["page_number_detection"] is None:
             for page in page_numbers:
                 bbox_page = page.detector_parser_annotated_bounding_box 
@@ -189,7 +196,6 @@ def group_items_on_page(matched_page):
                     page_numbers.remove(target_detection)
         
         # Pairing the page number for the subchapter (based on Geometry)
-        # TODO maybe delete and rely only on annotation
         if page_detection is None:
             for page in page_numbers:
                 bbox_page = page.detector_parser_annotated_bounding_box 
@@ -239,12 +245,6 @@ def group_items_on_page(matched_page):
 
     for group in resulting_groups:
         group["items"].sort(key=lambda p: p["_y_center"])
-        
-        # group.pop("_y", None)
-        # group.pop("_x", None)
-        # group.pop("_id", None)
-        # for p in group["items"]:
-        #     p.pop("_y", None)
 
     return resulting_groups
 
@@ -315,37 +315,32 @@ if __name__ == "__main__":
 
         for group in rich_groups:
             chapter_name = get_text_safe(group.get("title_detection")) or "No chapter"
-            
-            # get the corners of bounding boxes
-            main_poly = []
-            main_poly.extend(get_corner_points(group.get("title_detection")))
-            main_poly.extend(get_corner_points(group.get("chapter_number_detection")))
-            main_poly.extend(get_corner_points(group.get("page_number_detection")))
-            main_poly.extend(get_corner_points(group.get("subheading_detection")))
 
             chapter = Chapter(
                 name=chapter_name,
                 chapter_number=get_text_safe(group.get("chapter_number_detection")),
                 page_number=get_text_safe(group.get("page_number_detection")),
-                description=get_text_safe(group.get("subheading_detection")), # Text z podnadpisu
-                polygon=main_poly,
+                description=get_text_safe(group.get("subheading_detection")),
+
+                name_bbox = get_corner_points(group.get("title_detection")),
+                chapter_number_bbox=get_corner_points(group.get("chapter_number_detection")),
+                page_number_bbox=get_corner_points(group.get("page_number_detection")),
+                description_bbox=get_corner_points(group.get("subheading_detection")),
+
                 subchapters=[]
             )
 
             for item in group.get("items", []):
                 item_det = item.get("detection")
-
-                # get the corners of bounding boxes
-                sub_poly = []
-                sub_poly.extend(get_corner_points(item_det))
-                sub_poly.extend(get_corner_points(item.get("number_detection")))
-                sub_poly.extend(get_corner_points(item.get("page_detection")))
                 
                 subchapter = Chapter(
                     name=get_text_safe(item_det),
                     chapter_number=get_text_safe(item.get("number_detection")),
                     page_number=get_text_safe(item.get("page_detection")),
-                    polygon=sub_poly
+
+                    name_bbox=get_corner_points(item_det),
+                    chapter_number_bbox=get_corner_points(item.get("number_detection")),
+                    page_number_bbox=get_corner_points(item.get("page_detection"))
                 )
                 chapter.subchapters.append(subchapter)
 
