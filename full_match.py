@@ -14,13 +14,19 @@ from typing import Optional, List, Tuple
 
 class Chapter(BaseModel):
     name: Optional[str] = None
-    chapter_number: Optional[str] = None
-    page_number: Optional[str] = None
-    description: Optional[str] = None
-
+    name_conf: Optional[List[float]] = []
     name_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
+
+    chapter_number: Optional[str] = None
+    chapter_number_conf: Optional[List[float]] = []
     chapter_number_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
+    
+    page_number: Optional[str] = None
+    page_number_conf: Optional[List[float]] = []
     page_number_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
+
+    description: Optional[str] = None
+    description_conf: Optional[List[float]] = []
     description_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
 
     subchapters: Optional[List['Chapter']] = []
@@ -45,6 +51,11 @@ def get_text_safe(detection) -> Optional[str]:
         return None
     text = detection.get_text().strip()    
     return text if text != "" else None
+
+
+
+def get_confs_safe(detection) -> Optional[List[float]]:
+    return detection.get_word_confidences() if detection else None
 
 
 
@@ -103,7 +114,6 @@ def group_items_on_page(matched_page):
         y_chap_bottom = bbox_chap.y + bbox_chap.height 
         
         group = {
-            "record_type": "1",
             "title_detection": chap,
             "page_number_detection": None,
             "chapter_number_detection": None,
@@ -152,7 +162,6 @@ def group_items_on_page(matched_page):
 
     
     orphans = {
-        "record_type": "N/A",
         "title_detection": None, # Orphans don't have a main heading detection
         "page_number_detection": None,
         "chapter_number_detection": None,
@@ -218,10 +227,9 @@ def group_items_on_page(matched_page):
                 break
                     
         parent["items"].append({
-            "record_type": "4",
-            "detection": o_heading,
-            "page_detection": page_detection,
-            "number_detection": chap_num_detection,
+            "title_detection": o_heading,
+            "page_number_detection": page_detection,
+            "chapter_number_detection": chap_num_detection,
             "_y_center": y_o_heading_top
         })
 
@@ -314,33 +322,50 @@ if __name__ == "__main__":
 
 
         for group in rich_groups:
-            chapter_name = get_text_safe(group.get("title_detection")) or "No chapter"
+            chapter_det = group.get("title_detection")
+            chapter_number_det = group.get("chapter_number_detection")
+            page_number_det = group.get("page_number_detection")
+            description_det = group.get("subheading_detection")
+
+            # chapter_name = get_text_safe(group.get("title_detection")) or "No chapter"
 
             chapter = Chapter(
-                name=chapter_name,
-                chapter_number=get_text_safe(group.get("chapter_number_detection")),
-                page_number=get_text_safe(group.get("page_number_detection")),
-                description=get_text_safe(group.get("subheading_detection")),
+                # name=chapter_name,
+                name=get_text_safe(chapter_det) or "No chapter",
+                chapter_number=get_text_safe(chapter_number_det),
+                page_number=get_text_safe(page_number_det),
+                description=get_text_safe(description_det),
 
-                name_bbox = get_corner_points(group.get("title_detection")),
-                chapter_number_bbox=get_corner_points(group.get("chapter_number_detection")),
-                page_number_bbox=get_corner_points(group.get("page_number_detection")),
-                description_bbox=get_corner_points(group.get("subheading_detection")),
+                name_bbox=get_corner_points(chapter_det),
+                chapter_number_bbox=get_corner_points(chapter_number_det),
+                page_number_bbox=get_corner_points(page_number_det),
+                description_bbox=get_corner_points(description_det),
+
+                name_conf=get_confs_safe(chapter_det),
+                chapter_number_conf=get_confs_safe(chapter_number_det),
+                page_number_conf=get_confs_safe(page_number_det),
+                description_conf=get_confs_safe(description_det),
 
                 subchapters=[]
             )
 
             for item in group.get("items", []):
-                item_det = item.get("detection")
+                item_det = item.get("title_detection")
+                chapter_number_det = item.get("number_detection")
+                page_number_det = item.get("page_detection")
                 
                 subchapter = Chapter(
                     name=get_text_safe(item_det),
-                    chapter_number=get_text_safe(item.get("number_detection")),
-                    page_number=get_text_safe(item.get("page_detection")),
+                    chapter_number=get_text_safe(chapter_number_det),
+                    page_number=get_text_safe(page_number_det),
 
                     name_bbox=get_corner_points(item_det),
-                    chapter_number_bbox=get_corner_points(item.get("number_detection")),
-                    page_number_bbox=get_corner_points(item.get("page_detection"))
+                    chapter_number_bbox=get_corner_points(chapter_number_det),
+                    page_number_bbox=get_corner_points(page_number_det),
+
+                    name_conf=get_confs_safe(item_det),
+                    chapter_number_conf=get_confs_safe(chapter_number_det),
+                    page_number_conf=get_confs_safe(page_number_det)
                 )
                 chapter.subchapters.append(subchapter)
 
