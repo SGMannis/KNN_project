@@ -115,8 +115,8 @@ def group_items_on_page(matched_page):
         
         group = {
             "title_detection": chap,
-            "page_number_detection": None,
             "chapter_number_detection": None,
+            "page_number_detection": None,
             "subheading_detection": None,
             "items": [], 
             "_y_top": y_chap_top,
@@ -163,8 +163,8 @@ def group_items_on_page(matched_page):
     
     orphans = {
         "title_detection": None, # Orphans don't have a main heading detection
-        "page_number_detection": None,
         "chapter_number_detection": None,
+        "page_number_detection": None,
         "items": [],
         "_y_center": -1000 
     }
@@ -228,8 +228,8 @@ def group_items_on_page(matched_page):
                     
         parent["items"].append({
             "title_detection": o_heading,
-            "page_number_detection": page_detection,
             "chapter_number_detection": chap_num_detection,
+            "page_number_detection": page_detection,
             "_y_center": y_o_heading_top
         })
 
@@ -351,8 +351,8 @@ if __name__ == "__main__":
 
             for item in group.get("items", []):
                 item_det = item.get("title_detection")
-                chapter_number_det = item.get("number_detection")
-                page_number_det = item.get("page_detection")
+                chapter_number_det = item.get("chapter_number_detection")
+                page_number_det = item.get("page_number_detection")
                 
                 subchapter = Chapter(
                     name=get_text_safe(item_det),
