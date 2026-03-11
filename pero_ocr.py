@@ -150,7 +150,8 @@ class ALTOMatchedPage:
                                f"confidence: {detector_parser_annotated_bounding_box.conf}, "
                                f"detection id: {detector_parser_annotated_bounding_box.id}, "
                                f"bbox: {detector_parser_annotated_bounding_box}")
-                continue
+                # continue
+                
             matched_detection = ALTOMatchedDetection(detector_parser_annotated_bounding_box, matched_words)
             matched_detections.append(matched_detection)
         self.matched_detections = matched_detections
