@@ -14,11 +14,12 @@ COLORS = {
     "name": (0, 0, 255),           # red
     "chapter_number": (255, 0, 0), # blue
     "page_number": (0, 255, 0),    # green
-    "description": (0, 255, 255)   # yellow
+    "description": (0, 255, 255),  # yellow
+    "line": (0, 0, 0)
 }
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Visualization of updated matched output")
+    parser = argparse.ArgumentParser(description="Visualization of updated matched output with alignment lines")
 
     parser.add_argument(
         "-j", "--json_dir", 
@@ -44,9 +45,9 @@ def parse_arguments():
     return parser.parse_args()
 
 def draw_chapter(img, chapter):
-    """Recursively draws chapter and its subchapters using explicit bbox fields."""
-    # The fields we want to visualize
+    """Recursively draws chapter bboxes and connects their centers with a line to show alignment."""
     fields = ["name", "chapter_number", "page_number", "description"]
+    centers = []
     
     for field in fields:
         bbox_key = f"{field}_bbox"
@@ -54,18 +55,27 @@ def draw_chapter(img, chapter):
         
         # Draw only if the bbox exists and is not null
         if bbox and len(bbox) == 2:
-            # Ensure coordinates are tuples of integers for OpenCV
+            # Ensure coordinates are tuples of integers
             p1 = tuple(map(int, bbox[0]))
             p2 = tuple(map(int, bbox[1]))
+            
+            # Calculate the center point for the connecting line
+            cx = (p1[0] + p2[0]) // 2
+            cy = (p1[1] + p2[1]) // 2
+            centers.append((cx, cy))
             
             color = COLORS.get(field, (255, 255, 255))
             
             # Draw the bounding box
             cv2.rectangle(img, p1, p2, color, 2)
             
-            # Add text label above the box
-            cv2.putText(img, field, (p1[0], p1[1] - 5), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+    # Draw connecting lines between the centers to show horizontal alignment
+    if len(centers) > 1:
+        # Sort points by X-coordinate so the line follows the reading direction
+        centers.sort(key=lambda p: p[0])
+        for i in range(len(centers) - 1):
+            # Using a light gray color (180, 180, 180) for the connecting line
+            cv2.line(img, centers[i], centers[i+1], COLORS["line"], 2, cv2.LINE_AA)
     
     # Subchapter recursion
     for sub in chapter.get("subchapters", []):
