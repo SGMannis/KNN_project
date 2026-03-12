@@ -13,6 +13,7 @@ DEFAULT_OUTPUT_DIR = "out_vis/"
 
 # Path to a font that supports Czech characters.
 FONT_PATH = "/System/Library/Fonts/Supplemental/Arial.ttf"
+DEFAULT_FONT_SIZE = 32
 
 # Color definition (Stored as BGR, but we will convert to RGB for Pillow)
 COLORS = {
@@ -95,7 +96,7 @@ def main():
 
     # Load font once [cite: 2026-02-26]
     try:
-        font = ImageFont.truetype(FONT_PATH, 16)
+        font = ImageFont.truetype(FONT_PATH, DEFAULT_FONT_SIZE)
     except:
         font = ImageFont.load_default()
 
