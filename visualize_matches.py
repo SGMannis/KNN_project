@@ -4,12 +4,12 @@ import json
 import os
 import glob
 
-# Path configuration
-JSON_DIR = "out/"
-IMAGE_DIR = "data/project-38-at-2026-02-24-13-47-846604c7/images/"
-OUTPUT_DIR = "out_vis/"
+# Default Path configuration
+DEFAULT_JSON_DIR = "out/"
+DEFAULT_IMAGE_DIR = "data/project-38-at-2026-02-24-13-47-846604c7/images/"
+DEFAULT_OUTPUT_DIR = "out_vis/"
 
-# Color definition for separate elements.
+# Color definition for separate elements (BGR format)
 COLORS = {
     "name": (0, 0, 255),           # red
     "chapter_number": (255, 0, 0), # blue
@@ -18,68 +18,67 @@ COLORS = {
 }
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Visualization of matched output")
+    parser = argparse.ArgumentParser(description="Visualization of updated matched output")
 
     parser.add_argument(
         "-j", "--json_dir", 
         type=str,
-        default=JSON_DIR,
+        default=DEFAULT_JSON_DIR,
         help="path to the fully matched json directory"
     )
 
     parser.add_argument(
         "-i", "--image_dir",
         type=str,
-        default=IMAGE_DIR, 
+        default=DEFAULT_IMAGE_DIR, 
         help="path to the source image directory"
     )
 
     parser.add_argument(
         "-o", "--output_dir", 
         type=str,
-        default=OUTPUT_DIR,
+        default=DEFAULT_OUTPUT_DIR,
         help="path to the output directory"
     )
 
     return parser.parse_args()
 
 def draw_chapter(img, chapter):
-    """Rekurzivně vykreslí kapitolu a její podkapitoly."""
-    fields_order = ["name", "chapter_number", "page_number", "description"]
-    polygon = chapter.get("polygon", [])
+    """Recursively draws chapter and its subchapters using explicit bbox fields."""
+    # The fields we want to visualize
+    fields = ["name", "chapter_number", "page_number", "description"]
     
-    point_idx = 0
-    for field in fields_order:
-        # If field exists (is not null), we take another two points from polygon
-        if chapter.get(field) is not None:
-            if point_idx + 1 < len(polygon):
-                p1 = tuple(polygon[point_idx])
-                p2 = tuple(polygon[point_idx + 1])
-                
-                # Drawing rectangle
-                color = COLORS.get(field, (255, 255, 255))
-                cv2.rectangle(img, p1, p2, color, 2)
-                
-                # Optionally adding label with field name
-                # cv2.putText(img, field, (p1[0], p1[1] - 5), 
-                #             cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
-                
-                point_idx += 2
+    for field in fields:
+        bbox_key = f"{field}_bbox"
+        bbox = chapter.get(bbox_key)
+        
+        # Draw only if the bbox exists and is not null
+        if bbox and len(bbox) == 2:
+            # Ensure coordinates are tuples of integers for OpenCV
+            p1 = tuple(map(int, bbox[0]))
+            p2 = tuple(map(int, bbox[1]))
+            
+            color = COLORS.get(field, (255, 255, 255))
+            
+            # Draw the bounding box
+            cv2.rectangle(img, p1, p2, color, 2)
+            
+            # Add text label above the box
+            cv2.putText(img, field, (p1[0], p1[1] - 5), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
     
     # Subchapter recursion
     for sub in chapter.get("subchapters", []):
         draw_chapter(img, sub)
 
 def main():
-   # Parse CLI arguments
     args = parse_arguments()
 
-    # Ensure output directory exists
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
         print(f"Created folder: {args.output_dir}")
 
-    # Find all JSON files using the path from arguments
+    # Find all JSON files
     json_files = glob.glob(os.path.join(args.json_dir, "*.json"))
     
     if not json_files:
@@ -87,13 +86,18 @@ def main():
         return
 
     for json_path in json_files:
-        print(f"Processing: {os.path.basename(json_path)}")
+        filename = os.path.basename(json_path)
+        print(f"Processing: {filename}")
         
-        with open(json_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            print(f" FAIL: Could not read JSON {json_path}: {e}")
+            continue
         
-        # Getting image name - same name as JSON expected, but looking in args.image_dir
-        base_name = os.path.splitext(os.path.basename(json_path))[0]
+        # Image name matching logic
+        base_name = os.path.splitext(filename)[0]
         img_path = os.path.join(args.image_dir, base_name + ".jpg")
         
         if not os.path.exists(img_path):
@@ -102,14 +106,14 @@ def main():
             
         img = cv2.imread(img_path)
         if img is None:
-            print(f" FAIL: Could not read image {img_path}")
+            print(f" FAIL: OpenCV could not read image {img_path}")
             continue
 
-        # Go through all the main entities in JSON
+        # Process each top-level chapter object in the list
         for entry in data:
             draw_chapter(img, entry)
             
-        # Saving output to the path from arguments
+        # Save visualization
         out_path = os.path.join(args.output_dir, base_name + "_vis.jpg")
         cv2.imwrite(out_path, img)
         print(f" Saved to: {out_path}")
