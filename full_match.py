@@ -14,20 +14,19 @@ from typing import Optional, List, Tuple
 
 class Chapter(BaseModel):
     name: Optional[str] = None
-    name_conf: Optional[List[float]] = []
-    name_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
-
     chapter_number: Optional[str] = None
-    chapter_number_conf: Optional[List[float]] = []
-    chapter_number_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
-    
     page_number: Optional[str] = None
-    page_number_conf: Optional[List[float]] = []
-    page_number_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
-
     description: Optional[str] = None
-    description_conf: Optional[List[float]] = []
+
+    name_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
+    chapter_number_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
+    page_number_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
     description_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
+
+    name_conf: Optional[List[float]] = []
+    chapter_number_conf: Optional[List[float]] = []
+    page_number_conf: Optional[List[float]] = []
+    description_conf: Optional[List[float]] = []
 
     subchapters: Optional[List['Chapter']] = []
 
@@ -60,11 +59,22 @@ def get_confs_safe(detection) -> Optional[List[float]]:
 
 
 def group_items_on_page(matched_page):
-    # STEP 0: Preparation - map bounding box IDs to extracted data for quick lookup
+    # Preparation - map bounding box IDs to extracted data for quick lookup and computing page width
     detection_by_id = {}
+    all_x_min = []
+    all_x_max = []
+    
     for detection in matched_page.matched_detections:
         bbox = detection.detector_parser_annotated_bounding_box
         detection_by_id[bbox.id] = detection
+        all_x_min.append(bbox.x)
+        all_x_max.append(bbox.x + bbox.width)
+
+    page_min_x = min(all_x_min) if all_x_min else 0
+    page_max_x = max(all_x_max) if all_x_max else 1000
+    page_width = page_max_x - page_min_x
+    mid_x = page_min_x + (page_width / 2)
+    gutter_width = page_width * 0.05    
 
     n_of_pixels_spare = 15
 
@@ -73,17 +83,20 @@ def group_items_on_page(matched_page):
 
     relation_to_from = {rel.to_id: rel.from_id for rel in original_page.relations}
 
+    column_tags = {}
     chapters = []
     other_headings = []
     subheadings = []
     chapter_numbers = []
     page_numbers = []
 
+    twocolumn = False
     # ==========================================
-    # STEP 1: Sorting into buckets and filtering
+    # Sorting into buckets and filtering + column tags
     # ==========================================
     for detection in matched_page.matched_detections:
         cls = detection.get_class()
+        bbox = detection.detector_parser_annotated_bounding_box
         
         if cls == "kapitola":
             chapters.append(detection)
@@ -93,19 +106,45 @@ def group_items_on_page(matched_page):
             subheadings.append(detection)
         elif cls == "jine cislo":
             chapter_numbers.append(detection)
+            continue
         elif cls == "cislo strany":
             page_numbers.append(detection)
+            continue
+        
+        # bbox starts on the left and ends on the right side
+        if bbox.x < (mid_x - gutter_width) and (bbox.x + bbox.width) > (mid_x + gutter_width):
+            column_tags[bbox.id] = "full"
+        # bbox starts on the right side
+        elif bbox.x > mid_x:
+            column_tags[bbox.id] = "right"
+            twocolumn = True
+        else:
+            column_tags[bbox.id] = "left"
+    
 
     chapters.sort(key=lambda d: d.detector_parser_annotated_bounding_box.y)
     page_numbers.sort(key=lambda d: d.detector_parser_annotated_bounding_box.y)
     chapter_numbers.sort(key=lambda d: d.detector_parser_annotated_bounding_box.y)
     other_headings.sort(key=lambda d: d.detector_parser_annotated_bounding_box.y)
     subheadings.sort(key=lambda d: d.detector_parser_annotated_bounding_box.y)
+
+    all_headings = chapters + other_headings + subheadings
+
+    def left_path_free(start_x, dest_x, y_line):
+        for h in all_headings:
+            h_bbox = h.detector_parser_annotated_bounding_box
+            # collision based on x axis?
+            # if dest_x < (h_bbox.x + h_bbox.width) < start_x:
+            if h_bbox.x < start_x and (h_bbox.x + h_bbox.width) > dest_x:
+                # same line?
+                if (h_bbox.y - 5) <= y_line <= (h_bbox.y + h_bbox.height + 5):
+                    return False # we are in a wrong column
+        return True # ok
     
     resulting_groups = []
 
     # ==========================================
-    # STEP 2: Creating anchors (Chapters)
+    # Chapters
     # ==========================================
     for chap in chapters:
         bbox_chap = chap.detector_parser_annotated_bounding_box 
@@ -123,7 +162,8 @@ def group_items_on_page(matched_page):
             "_y_center": y_chap_center,
             "_y_bottom": y_chap_bottom,
             "_x": bbox_chap.x, 
-            "_id": bbox_chap.id 
+            "_id": bbox_chap.id,
+            "_tag": column_tags[bbox_chap.id]
         }
 
         # Pairing the page number for the chapter (based on relation annotation)
@@ -137,26 +177,26 @@ def group_items_on_page(matched_page):
                     page_numbers.remove(target_detection)
 
         # Pairing the page number for the chapter (based on Geometry)
-        if group["page_number_detection"] is None:
-            for page in page_numbers:
-                bbox_page = page.detector_parser_annotated_bounding_box 
-                y_page = bbox_page.y + bbox_page.height
-                # chapter name and its page number (bottoms) are in approx. same height and chapter page number is to the right of the chapter name
-                if abs(group["_y_bottom"] - y_page) <= n_of_pixels_spare and bbox_page.x > group["_x"]: 
-                    group["page_number_detection"] = page
-                    # remove from list
-                    page_numbers.remove(page)
-                    break
+        # if group["page_number_detection"] is None: # only when relation match fails (should succeed every time but ehhhh)
+        #     for page in page_numbers:
+        #         bbox_page = page.detector_parser_annotated_bounding_box 
+        #         y_page = bbox_page.y + bbox_page.height
+        #         # chapter name and its page number (bottoms) are in approx. same height and chapter page number is to the right of the chapter name
+        #         if abs(group["_y_bottom"] - y_page) <= n_of_pixels_spare and bbox_page.x > group["_x"]: 
+        #             group["page_number_detection"] = page
+        #             # remove from list
+        #             page_numbers.remove(page)
+        #             break
     
         # Pairing the chapter number
         for c_chap in chapter_numbers:
             bbox_c_chap = c_chap.detector_parser_annotated_bounding_box 
-            # chapter name and its number are in approx. same height and chapter number is to the left of the chapter name
             if abs(group["_y_top"] - bbox_c_chap.y) <= n_of_pixels_spare and bbox_c_chap.x < group["_x"]: 
-                group["chapter_number_detection"] = c_chap
-                # remove from list
-                chapter_numbers.remove(c_chap)
-                break
+                if left_path_free(group["_x"], bbox_c_chap.x, group["_y_top"]):
+                    group["chapter_number_detection"] = c_chap
+                    # remove from list
+                    chapter_numbers.remove(c_chap)
+                    break
         
         resulting_groups.append(group)
 
@@ -166,32 +206,56 @@ def group_items_on_page(matched_page):
         "chapter_number_detection": None,
         "page_number_detection": None,
         "items": [],
-        "_y_center": -1000 
+        "_y_center": -1000,
+        "_tag": "full"
     }
 
-    def find_parent_chapter(y_item):
-        closest = None
+
+    def find_parent_chapter(y_item, item_tag):
+        closest_above = None
         min_distance = float('inf')
+        
         for group in resulting_groups:
-            if y_item > group["_y_center"]: 
-                distance = y_item - group["_y_center"]
-                if distance < min_distance:
-                    min_distance = distance
-                    closest = group
-        return closest if closest is not None else orphans
+            parent_tag = group["_tag"]
+            if item_tag == parent_tag or parent_tag == "full" or (item_tag == "full" and parent_tag == "left"):
+                if y_item > group["_y_center"]: 
+                    distance = y_item - group["_y_center"]
+                    if distance < min_distance:
+                        min_distance = distance
+                        closest_above = group
+                        
+        if closest_above is not None:
+            return closest_above
+
+
+        if item_tag == "right":
+            lowest_left_chapter = None
+            max_y = -float('inf')
+            
+            for group in resulting_groups:
+                if group["_tag"] == "left":
+                    if group["_y_center"] > max_y:
+                        max_y = group["_y_center"]
+                        lowest_left_chapter = group
+                            
+            if lowest_left_chapter is not None:
+                return lowest_left_chapter
+
+        return orphans
     
 
     # ==========================================
-    # STEP 3: Other headings (sometimes numbered and can have a page number)
+    # Other headings (sometimes numbered and can have a page number)
     # ==========================================
     for o_heading in other_headings:
         bbox_o = o_heading.detector_parser_annotated_bounding_box 
         y_o_heading_top = bbox_o.y
         y_o_heading_center = bbox_o.y + (bbox_o.height / 2) 
         y_o_heading_bottom = bbox_o.y + bbox_o.height
-        id_o = bbox_o.id 
+        id_o = bbox_o.id
+        my_tag = column_tags[id_o]
         
-        parent = find_parent_chapter(y_o_heading_center)
+        parent = find_parent_chapter(y_o_heading_center, my_tag)
         page_detection = None
         chap_num_detection = None
         
@@ -205,32 +269,34 @@ def group_items_on_page(matched_page):
                     page_numbers.remove(target_detection)
         
         # Pairing the page number for the subchapter (based on Geometry)
-        if page_detection is None:
-            for page in page_numbers:
-                bbox_page = page.detector_parser_annotated_bounding_box 
-                y_page = bbox_page.y + bbox_page.height
-                # subchapter and its page number (bottoms) are in approx. same height and page number is to the right of the subchapter
-                if abs(y_o_heading_bottom - y_page) <= n_of_pixels_spare and bbox_page.x > bbox_o.x: 
-                    page_detection = page
-                    # remove from list
-                    page_numbers.remove(page)
-                    break
+        # if page_detection is None:
+        #     for page in page_numbers:
+        #         bbox_page = page.detector_parser_annotated_bounding_box 
+        #         y_page = bbox_page.y + bbox_page.height
+        #         # subchapter and its page number (bottoms) are in approx. same height and page number is to the right of the subchapter
+        #         if abs(y_o_heading_bottom - y_page) <= n_of_pixels_spare and bbox_page.x > bbox_o.x: 
+        #             page_detection = page
+        #             # remove from list
+        #             page_numbers.remove(page)
+        #             break
 
         # Pairing the subchapter number
         for c_chap in chapter_numbers:
             bbox_c = c_chap.detector_parser_annotated_bounding_box
             # subchapter and its number are in approx. same height and subchapter number is to the left of the subchapter
             if abs(y_o_heading_top - bbox_c.y) <= n_of_pixels_spare and bbox_c.x < bbox_o.x:
-                chap_num_detection = c_chap
-                # remove from list
-                chapter_numbers.remove(c_chap)
-                break
+                if left_path_free(bbox_o.x, bbox_c.x, y_o_heading_top):
+                    chap_num_detection = c_chap
+                    # remove from list
+                    chapter_numbers.remove(c_chap)
+                    break
                     
         parent["items"].append({
             "title_detection": o_heading,
             "chapter_number_detection": chap_num_detection,
             "page_number_detection": page_detection,
-            "_y_center": y_o_heading_top
+            "_y_center": y_o_heading_top,
+            "_tag": my_tag
         })
 
     # ==========================================
@@ -240,7 +306,7 @@ def group_items_on_page(matched_page):
         bbox_sub = subheading.detector_parser_annotated_bounding_box 
         y_sub = bbox_sub.y + (bbox_sub.height / 2) 
         
-        parent = find_parent_chapter(y_sub)
+        parent = find_parent_chapter(y_sub, column_tags[bbox_sub.id])
 
         if parent is not orphans:
             parent["subheading_detection"] = subheading
@@ -251,8 +317,20 @@ def group_items_on_page(matched_page):
     if orphans["items"]: 
         resulting_groups.insert(0, orphans)
 
-    for group in resulting_groups:
-        group["items"].sort(key=lambda p: p["_y_center"])
+    
+    if twocolumn:
+        tag_order = {"full": 0, "left": 1, "right": 2}
+
+        for group in resulting_groups:
+            group["items"].sort(key=lambda p: (tag_order.get(p.get("_tag", "full"), 0), p["_y_center"]))
+
+        resulting_groups.sort(key=lambda g: (tag_order.get(g.get("_tag", "full"), 0), g["_y_center"]))
+
+    else:
+        for group in resulting_groups:
+            group["items"].sort(key=lambda p: p["_y_center"])
+
+        resulting_groups.sort(key=lambda g: g["_y_center"])
 
     return resulting_groups
 
@@ -327,10 +405,7 @@ if __name__ == "__main__":
             page_number_det = group.get("page_number_detection")
             description_det = group.get("subheading_detection")
 
-            # chapter_name = get_text_safe(group.get("title_detection")) or "No chapter"
-
             chapter = Chapter(
-                # name=chapter_name,
                 name=get_text_safe(chapter_det) or "No chapter",
                 chapter_number=get_text_safe(chapter_number_det),
                 page_number=get_text_safe(page_number_det),
@@ -341,10 +416,10 @@ if __name__ == "__main__":
                 page_number_bbox=get_corner_points(page_number_det),
                 description_bbox=get_corner_points(description_det),
 
-                name_conf=get_confs_safe(chapter_det),
-                chapter_number_conf=get_confs_safe(chapter_number_det),
-                page_number_conf=get_confs_safe(page_number_det),
-                description_conf=get_confs_safe(description_det),
+                # name_conf=get_confs_safe(chapter_det),
+                # chapter_number_conf=get_confs_safe(chapter_number_det),
+                # page_number_conf=get_confs_safe(page_number_det),
+                # description_conf=get_confs_safe(description_det),
 
                 subchapters=[]
             )
@@ -363,9 +438,9 @@ if __name__ == "__main__":
                     chapter_number_bbox=get_corner_points(chapter_number_det),
                     page_number_bbox=get_corner_points(page_number_det),
 
-                    name_conf=get_confs_safe(item_det),
-                    chapter_number_conf=get_confs_safe(chapter_number_det),
-                    page_number_conf=get_confs_safe(page_number_det)
+                    # name_conf=get_confs_safe(item_det),
+                    # chapter_number_conf=get_confs_safe(chapter_number_det),
+                    # page_number_conf=get_confs_safe(page_number_det)
                 )
                 chapter.subchapters.append(subchapter)
 
