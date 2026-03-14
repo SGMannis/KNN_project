@@ -128,14 +128,15 @@ def group_items_on_page(matched_page):
     other_headings.sort(key=lambda d: d.detector_parser_annotated_bounding_box.y)
     subheadings.sort(key=lambda d: d.detector_parser_annotated_bounding_box.y)
 
-    all_headings = chapters + other_headings + subheadings
+    all_headings = chapters + other_headings
 
+    # start_x - original heading, dest_x - potential (sub)chapter number
     def left_path_free(start_x, dest_x, y_line):
         for h in all_headings:
             h_bbox = h.detector_parser_annotated_bounding_box
-            # collision based on x axis?
-            # if dest_x < (h_bbox.x + h_bbox.width) < start_x:
-            if h_bbox.x < start_x and (h_bbox.x + h_bbox.width) > dest_x:
+            h_bbox_center = h_bbox.x + (h_bbox.width / 2)
+            # collision based on x axis? Obstacle right of (sub)chapter number and left of original heading
+            if  dest_x < h_bbox_center and h_bbox_center < start_x:
                 # same line?
                 if (h_bbox.y - 5) <= y_line <= (h_bbox.y + h_bbox.height + 5):
                     return False # we are in a wrong column
@@ -151,6 +152,7 @@ def group_items_on_page(matched_page):
         y_chap_top = bbox_chap.y
         y_chap_center = bbox_chap.y + (bbox_chap.height / 2) 
         y_chap_bottom = bbox_chap.y + bbox_chap.height 
+        x_chap_center = bbox_chap.x + (bbox_chap.width / 2)
         
         group = {
             "title_detection": chap,
@@ -161,7 +163,8 @@ def group_items_on_page(matched_page):
             "_y_top": y_chap_top,
             "_y_center": y_chap_center,
             "_y_bottom": y_chap_bottom,
-            "_x": bbox_chap.x, 
+            "_x": bbox_chap.x,
+            "_x_center": x_chap_center,
             "_id": bbox_chap.id,
             "_tag": column_tags[bbox_chap.id]
         }
@@ -191,12 +194,20 @@ def group_items_on_page(matched_page):
         # Pairing the chapter number
         for c_chap in chapter_numbers:
             bbox_c_chap = c_chap.detector_parser_annotated_bounding_box 
-            if abs(group["_y_top"] - bbox_c_chap.y) <= n_of_pixels_spare and bbox_c_chap.x < group["_x"]: 
+            c_chap_y_center = bbox_c_chap.y + (bbox_c_chap.height / 2)
+            if (abs(group["_y_top"] - bbox_c_chap.y) <= n_of_pixels_spare or abs(group["_y_center"] - c_chap_y_center) <= n_of_pixels_spare) and bbox_c_chap.x < group["_x"]: 
                 if left_path_free(group["_x"], bbox_c_chap.x, group["_y_top"]):
                     group["chapter_number_detection"] = c_chap
                     # remove from list
                     chapter_numbers.remove(c_chap)
                     break
+            #TODO cislo kapitoly nad -> udelat to pres stredy bboxu
+            c_chap_x_center = bbox_c_chap.x + (bbox_c_chap.width / 2)
+            if abs(group["_x_center"] - c_chap_x_center) <= n_of_pixels_spare and bbox_c_chap.y < group["_y_center"]:
+                group["chapter_number_detection"] = c_chap
+                # remove from list
+                chapter_numbers.remove(c_chap)
+                break
         
         resulting_groups.append(group)
 
@@ -251,7 +262,7 @@ def group_items_on_page(matched_page):
         bbox_o = o_heading.detector_parser_annotated_bounding_box 
         y_o_heading_top = bbox_o.y
         y_o_heading_center = bbox_o.y + (bbox_o.height / 2) 
-        y_o_heading_bottom = bbox_o.y + bbox_o.height
+        # y_o_heading_bottom = bbox_o.y + bbox_o.height
         id_o = bbox_o.id
         my_tag = column_tags[id_o]
         
@@ -283,9 +294,10 @@ def group_items_on_page(matched_page):
         # Pairing the subchapter number
         for c_chap in chapter_numbers:
             bbox_c = c_chap.detector_parser_annotated_bounding_box
+            c_chap_y_center = bbox_c.y + (bbox_c.height / 2)
             # subchapter and its number are in approx. same height and subchapter number is to the left of the subchapter
-            if abs(y_o_heading_top - bbox_c.y) <= n_of_pixels_spare and bbox_c.x < bbox_o.x:
-                if left_path_free(bbox_o.x, bbox_c.x, y_o_heading_top):
+            if (abs(y_o_heading_top - bbox_c.y) <= n_of_pixels_spare or abs(y_o_heading_center - c_chap_y_center) <= n_of_pixels_spare) and bbox_c.x < bbox_o.x:
+                if left_path_free(bbox_o.x, bbox_c.x, y_o_heading_center):
                     chap_num_detection = c_chap
                     # remove from list
                     chapter_numbers.remove(c_chap)
