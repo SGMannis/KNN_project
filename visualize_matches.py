@@ -16,9 +16,6 @@ FONT_PATH = "/System/Library/Fonts/Supplemental/Arial.ttf"
 DEFAULT_FONT_SIZE = 32
 
 # High-Contrast Palette by Level (RGB for Pillow)
-# Level 0: Classic bright palette
-# Level 1: Muted/Different hue palette
-# Level 2+: Greyscale or very dark
 HIERARCHY_PALETTE = {
     0: {
         "name": (255, 0, 0),           # Bright Red
@@ -37,35 +34,28 @@ HIERARCHY_PALETTE = {
 }
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="High-contrast hierarchical visualization")
+    parser = argparse.ArgumentParser(description="Side-by-side hierarchical visualization")
     parser.add_argument("-j", "--json_dir", type=str, default=DEFAULT_JSON_DIR)
     parser.add_argument("-i", "--image_dir", type=str, default=DEFAULT_IMAGE_DIR)
     parser.add_argument("-o", "--output_dir", type=str, default=DEFAULT_OUTPUT_DIR)
     return parser.parse_args()
 
 def get_level_color(field_name, level):
-    """
-    Selects color based on hierarchy depth level. [cite: 2026-02-26]
-    """
-    # Use level 1 palette for anything level 1 or deeper, but dim it further [cite: 2026-02-26]
     palette_idx = min(level, 1)
     base_color = HIERARCHY_PALETTE[palette_idx].get(field_name, (0, 0, 0))
-    
     if level > 1:
-        # Dim subsequent levels by 40% [cite: 2026-02-26]
         factor = 0.6 ** (level - 1)
         return tuple(int(c * factor) for c in base_color)
-    
     return base_color
 
-def draw_chapter_recursive(draw_obj, font, chapter, level=0):
+def draw_chapter_recursive(draw_obj, font, chapter, x_offset, level=0):
     """
-    Draws chapters with significant color shifts based on depth. [cite: 2026-02-26]
+    Draws chapters twice: once on the original image and once on the white extension. [cite: 2026-02-26]
     """
     fields = ["name", "chapter_number", "page_number", "description"]
-    centers = []
+    centers_left = []
+    centers_right = []
     
-    # Visual thickness hierarchy [cite: 2026-02-26]
     current_width = 4 if level == 0 else 2
 
     for field in fields:
@@ -74,32 +64,40 @@ def draw_chapter_recursive(draw_obj, font, chapter, level=0):
         field_text = chapter.get(field) 
         
         if bbox and len(bbox) == 2:
-            p1 = tuple(map(int, bbox[0]))
-            p2 = tuple(map(int, bbox[1]))
-            centers.append(((p1[0] + p2[0]) // 2, (p1[1] + p2[1]) // 2))
+            # Original coordinates
+            p1_l = (int(bbox[0][0]), int(bbox[0][1]))
+            p2_l = (int(bbox[1][0]), int(bbox[1][1]))
+            centers_left.append(((p1_l[0] + p2_l[0]) // 2, (p1_l[1] + p2_l[1]) // 2))
+
+            # Extended (right-side) coordinates [cite: 2026-02-26]
+            p1_r = (p1_l[0] + x_offset, p1_l[1])
+            p2_r = (p2_l[0] + x_offset, p2_l[1])
+            centers_right.append(((p1_r[0] + p2_r[0]) // 2, (p1_r[1] + p2_r[1]) // 2))
             
-            # Get color from the high-contrast palette [cite: 2026-02-26]
             field_color = get_level_color(field, level)
             
-            # 1. Bounding box [cite: 2026-02-26]
-            draw_obj.rectangle([p1, p2], outline=field_color, width=current_width)
+            # Draw rectangles on both sides [cite: 2026-02-26]
+            draw_obj.rectangle([p1_l, p2_l], outline=field_color, width=current_width)
+            draw_obj.rectangle([p1_r, p2_r], outline=field_color, width=current_width)
             
-            # 2. Text rendering [cite: 2026-02-26]
             if field_text:
-                # Add "Level" prefix to the name field to make it ultra-obvious [cite: 2026-02-26]
                 prefix = f"[{level}] " if field == "name" else ""
-                draw_obj.text((p1[0] + 3, p1[1] + 2), prefix + str(field_text), font=font, fill=field_color)
+                txt = prefix + str(field_text)
+                # Draw text on both sides [cite: 2026-02-26]
+                draw_obj.text((p1_l[0] + 3, p1_l[1] + 2), txt, font=font, fill=field_color)
+                draw_obj.text((p1_r[0] + 3, p1_r[1] + 2), txt, font=font, fill=field_color)
 
-    # Connecting lines with level-specific colors [cite: 2026-02-26]
-    if len(centers) > 1:
-        line_color = get_level_color("line", level)
-        centers.sort(key=lambda p: p[0])
-        for i in range(len(centers) - 1):
-            draw_obj.line([centers[i], centers[i+1]], fill=line_color, width=current_width)
+    # Draw alignment lines on both sides [cite: 2026-02-26]
+    line_color = get_level_color("line", level)
+    if len(centers_left) > 1:
+        centers_left.sort(key=lambda p: p[0])
+        centers_right.sort(key=lambda p: p[0])
+        for i in range(len(centers_left) - 1):
+            draw_obj.line([centers_left[i], centers_left[i+1]], fill=line_color, width=current_width)
+            draw_obj.line([centers_right[i], centers_right[i+1]], fill=line_color, width=current_width)
 
-    # Increase level for recursion [cite: 2026-02-26]
     for sub in chapter.get("subchapters", []):
-        draw_chapter_recursive(draw_obj, font, sub, level + 1)
+        draw_chapter_recursive(draw_obj, font, sub, x_offset, level + 1)
 
 def main():
     args = parse_arguments()
@@ -121,14 +119,20 @@ def main():
         orig_img = cv2.imread(img_path)
         if orig_img is None: continue
         
+        h, w, _ = orig_img.shape
+        # Create extended canvas (double width) filled with white [cite: 2026-02-26]
+        canvas = np.full((h, w * 2, 3), 255, dtype=np.uint8)
+        # Place original image on the left half [cite: 2026-02-26]
+        canvas[:h, :w] = orig_img
+        
         # Pillow conversion [cite: 2026-02-26]
-        pil_img = Image.fromarray(cv2.cvtColor(orig_img, cv2.COLOR_BGR2RGB))
+        pil_img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
         draw_obj = ImageDraw.Draw(pil_img)
 
         for entry in data:
-            draw_chapter_recursive(draw_obj, font, entry, level=0)
+            # Draw using the width of original image as offset [cite: 2026-02-26]
+            draw_chapter_recursive(draw_obj, font, entry, x_offset=w, level=0)
             
-        # Write back to BGR for OpenCV [cite: 2026-02-26]
         final_res = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(args.output_dir, base_name + "_vis.jpg"), final_res)
         print(f"Done: {base_name}")
