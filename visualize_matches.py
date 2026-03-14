@@ -34,10 +34,23 @@ HIERARCHY_PALETTE = {
 }
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Side-by-side hierarchical visualization")
-    parser.add_argument("-j", "--json_dir", type=str, default=DEFAULT_JSON_DIR)
-    parser.add_argument("-i", "--image_dir", type=str, default=DEFAULT_IMAGE_DIR)
-    parser.add_argument("-o", "--output_dir", type=str, default=DEFAULT_OUTPUT_DIR)
+    parser = argparse.ArgumentParser(description="Side-by-side hierarchical visualization with granular control")
+    
+    # Path arguments
+    parser.add_argument("-j", "--json_dir", type=str, default=DEFAULT_JSON_DIR, help="JSON annotations directory")
+    parser.add_argument("-i", "--image_dir", type=str, default=DEFAULT_IMAGE_DIR, help="Source images directory")
+    parser.add_argument("-o", "--output_dir", type=str, default=DEFAULT_OUTPUT_DIR, help="Output directory")
+    
+    # Original Page options (Left side)
+    parser.add_argument("--p_bbox", action="store_true", default=True, help="Show bounding boxes on original page")
+    parser.add_argument("--p_text", action="store_true", default=False, help="Show text on original page")
+    parser.add_argument("--p_line", action="store_true", default=True, help="Show alignment lines on original page")
+    
+    # Extension Page options (Right side)
+    parser.add_argument("--e_bbox", action="store_true", default=False, help="Show bounding boxes on extension")
+    parser.add_argument("--e_text", action="store_true", default=True, help="Show text on extension")
+    parser.add_argument("--e_line", action="store_true", default=False, help="Show alignment lines on extension")
+    
     return parser.parse_args()
 
 def get_level_color(field_name, level):
@@ -48,9 +61,9 @@ def get_level_color(field_name, level):
         return tuple(int(c * factor) for c in base_color)
     return base_color
 
-def draw_chapter_recursive(draw_obj, font, chapter, x_offset, level=0):
+def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, level=0):
     """
-    Draws chapters twice: once on the original image and once on the white extension. [cite: 2026-02-26]
+    Draws chapters based on granular visibility flags. [cite: 2026-02-26]
     """
     fields = ["name", "chapter_number", "page_number", "description"]
     centers_left = []
@@ -64,40 +77,44 @@ def draw_chapter_recursive(draw_obj, font, chapter, x_offset, level=0):
         field_text = chapter.get(field) 
         
         if bbox and len(bbox) == 2:
-            # Original coordinates
             p1_l = (int(bbox[0][0]), int(bbox[0][1]))
             p2_l = (int(bbox[1][0]), int(bbox[1][1]))
             centers_left.append(((p1_l[0] + p2_l[0]) // 2, (p1_l[1] + p2_l[1]) // 2))
 
-            # Extended (right-side) coordinates [cite: 2026-02-26]
             p1_r = (p1_l[0] + x_offset, p1_l[1])
             p2_r = (p2_l[0] + x_offset, p2_l[1])
             centers_right.append(((p1_r[0] + p2_r[0]) // 2, (p1_r[1] + p2_r[1]) // 2))
             
             field_color = get_level_color(field, level)
             
-            # Draw rectangles on both sides [cite: 2026-02-26]
-            draw_obj.rectangle([p1_l, p2_l], outline=field_color, width=current_width)
-            draw_obj.rectangle([p1_r, p2_r], outline=field_color, width=current_width)
+            # 1. Bounding Boxes [cite: 2026-02-26]
+            if args.p_bbox:
+                draw_obj.rectangle([p1_l, p2_l], outline=field_color, width=current_width)
+            if args.e_bbox:
+                draw_obj.rectangle([p1_r, p2_r], outline=field_color, width=current_width)
             
+            # 2. Text [cite: 2026-02-26]
             if field_text:
                 prefix = f"[{level}] " if field == "name" else ""
                 txt = prefix + str(field_text)
-                # Draw text on both sides [cite: 2026-02-26]
-                draw_obj.text((p1_l[0] + 3, p1_l[1] + 2), txt, font=font, fill=field_color)
-                draw_obj.text((p1_r[0] + 3, p1_r[1] + 2), txt, font=font, fill=field_color)
+                if args.p_text:
+                    draw_obj.text((p1_l[0] + 3, p1_l[1] + 2), txt, font=font, fill=field_color)
+                if args.e_text:
+                    draw_obj.text((p1_r[0] + 3, p1_r[1] + 2), txt, font=font, fill=field_color)
 
-    # Draw alignment lines on both sides [cite: 2026-02-26]
+    # 3. Alignment Lines [cite: 2026-02-26]
     line_color = get_level_color("line", level)
     if len(centers_left) > 1:
         centers_left.sort(key=lambda p: p[0])
         centers_right.sort(key=lambda p: p[0])
         for i in range(len(centers_left) - 1):
-            draw_obj.line([centers_left[i], centers_left[i+1]], fill=line_color, width=current_width)
-            draw_obj.line([centers_right[i], centers_right[i+1]], fill=line_color, width=current_width)
+            if args.p_line:
+                draw_obj.line([centers_left[i], centers_left[i+1]], fill=line_color, width=current_width)
+            if args.e_line:
+                draw_obj.line([centers_right[i], centers_right[i+1]], fill=line_color, width=current_width)
 
     for sub in chapter.get("subchapters", []):
-        draw_chapter_recursive(draw_obj, font, sub, x_offset, level + 1)
+        draw_chapter_recursive(draw_obj, font, sub, x_offset, args, level + 1)
 
 def main():
     args = parse_arguments()
@@ -120,9 +137,8 @@ def main():
         if orig_img is None: continue
         
         h, w, _ = orig_img.shape
-        # Create extended canvas (double width) filled with white [cite: 2026-02-26]
+        # Create extended canvas [cite: 2026-02-26]
         canvas = np.full((h, w * 2, 3), 255, dtype=np.uint8)
-        # Place original image on the left half [cite: 2026-02-26]
         canvas[:h, :w] = orig_img
         
         # Pillow conversion [cite: 2026-02-26]
@@ -130,8 +146,7 @@ def main():
         draw_obj = ImageDraw.Draw(pil_img)
 
         for entry in data:
-            # Draw using the width of original image as offset [cite: 2026-02-26]
-            draw_chapter_recursive(draw_obj, font, entry, x_offset=w, level=0)
+            draw_chapter_recursive(draw_obj, font, entry, x_offset=w, args=args, level=0)
             
         final_res = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(args.output_dir, base_name + "_vis.jpg"), final_res)
