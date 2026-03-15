@@ -1,4 +1,5 @@
 import argparse
+import platform
 import cv2
 import json
 import os
@@ -12,7 +13,7 @@ DEFAULT_IMAGE_DIR = "data/project-38-at-2026-02-24-13-47-846604c7/images/"
 DEFAULT_OUTPUT_DIR = "out_vis/"
 
 # Path to a font that supports Czech characters.
-FONT_PATH = "/System/Library/Fonts/Supplemental/Arial.ttf"
+# FONT_PATH = "/System/Library/Fonts/Supplemental/Arial.ttf"
 DEFAULT_FONT_SIZE = 32
 
 # High-Contrast Palette by Level (RGB for Pillow)
@@ -32,6 +33,30 @@ HIERARCHY_PALETTE = {
         "line": (100, 100, 100)         # Gray
     }
 }
+
+def get_system_font():
+    system = platform.system()
+    
+    if system == "Darwin":  # macOS
+        paths = [
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/Library/Fonts/Arial.ttf"
+        ]
+    elif system == "Windows":
+        paths = [
+            "C:\\Windows\\Fonts\\arial.ttf",
+            os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "arial.ttf")
+        ]
+    else:  # Linux (Common paths for Arial or DejaVu)
+        paths = [
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        ]
+
+    for path in paths:
+        if os.path.exists(path):
+            return path
+    return None
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Side-by-side hierarchical visualization with granular control")
@@ -120,8 +145,12 @@ def main():
     args = parse_arguments()
     if not os.path.exists(args.output_dir): os.makedirs(args.output_dir)
 
+    font_path = get_system_font()
     try:
-        font = ImageFont.truetype(FONT_PATH, DEFAULT_FONT_SIZE)
+        if font_path:
+            font = ImageFont.truetype(font_path, DEFAULT_FONT_SIZE)
+        else:
+            font = ImageFont.load_default()
     except:
         font = ImageFont.load_default()
 
