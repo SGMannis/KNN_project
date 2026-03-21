@@ -47,7 +47,6 @@ def wrap_text(text, font, max_width):
 
     for word in words:
         test_line = ' '.join(current_line + [word])
-        # Use font.getlength for accurate pixel width [cite: 2026-02-26]
         if font.getlength(test_line) <= max_width:
             current_line.append(word)
         else:
@@ -62,7 +61,6 @@ def draw_wrapped_text(draw_obj, position, text, font, fill, max_width):
     """Draw text across multiple lines."""
     lines = wrap_text(text, font, max_width)
     x, y = position
-    # Get line height using font metrics [cite: 2026-02-26]
     line_height = font.getbbox("Ay")[3] + 2 
     for line in lines:
         draw_obj.text((x, y), line, font=font, fill=fill)
@@ -73,6 +71,9 @@ def parse_arguments():
     parser.add_argument("-j", "--json_dir", type=str, default=DEFAULT_JSON_DIR)
     parser.add_argument("-i", "--image_dir", type=str, default=DEFAULT_IMAGE_DIR)
     parser.add_argument("-o", "--output_dir", type=str, default=DEFAULT_OUTPUT_DIR)
+
+    parser.add_argument("-v", "--verbose", action="store_true", help="Print status for every processed file")
+
     parser.add_argument("--p_bbox", action="store_true", default=True)
     parser.add_argument("--p_text", action="store_true", default=False)
     parser.add_argument("--p_line", action="store_true", default=True)
@@ -109,7 +110,7 @@ def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, level=0):
 
             p1_l = (int(bbox[0][0]), int(bbox[0][1]))
             p2_l = (int(bbox[1][0]), int(bbox[1][1]))
-            box_w = p2_l[0] - p1_l[0] # Max width for text [cite: 2026-02-26]
+            box_w = p2_l[0] - p1_l[0] # Max width for text
 
             p1_r = (p1_l[0] + x_offset, p1_l[1])
             p2_r = (p2_l[0] + x_offset, p2_l[1])
@@ -147,9 +148,16 @@ def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, level=0):
         draw_chapter_recursive(draw_obj, font, sub, x_offset, args, level + 1)
 
 def main():
-    args = parse_arguments()
-    if not os.path.exists(args.output_dir): os.makedirs(args.output_dir)
+    print("="*30)
+    print(f"VISUALIZATION SCRIPT")
+    print("="*30+"\n")
 
+    print("Parsing arguments...")
+    args = parse_arguments()
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
+
+    print("Loading system font...")
     font_path = get_system_font()
     try:
         font = ImageFont.truetype(font_path, DEFAULT_FONT_SIZE) if font_path else ImageFont.load_default()
@@ -158,6 +166,10 @@ def main():
 
     json_files = glob.glob(os.path.join(args.json_dir, "*.json"))
     
+    processed_count = 0 # success counter
+
+    print(f"Found {len(json_files)} JSON files.")
+    print("Processing files...")
     for json_path in json_files:
         with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -165,7 +177,11 @@ def main():
         base_name = os.path.splitext(os.path.basename(json_path))[0]
         img_path = os.path.join(args.image_dir, base_name + ".jpg")
         
-        if not os.path.exists(img_path): continue
+        if not os.path.exists(img_path):
+            if args.verbose:
+                print(f"Warning: Image not found for {base_name}")
+            continue
+
         orig_img = cv2.imread(img_path)
         if orig_img is None: continue
         
@@ -181,10 +197,16 @@ def main():
             
         final_res = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(args.output_dir, base_name + "_vis.jpg"), final_res)
-        print(f"Done: {base_name}")
+        
+        processed_count += 1
+        
+        # Only print if verbose mode is enabled
+        if args.verbose:
+            print(f"Done: {base_name}")
 
     print("\n" + "="*30)
     print(f"VISUALIZATION COMPLETE")
+    print(f"Files processed: {processed_count}")
     print(f"Total missing text fields found: {missing_counter}")
     print("="*30)
 
