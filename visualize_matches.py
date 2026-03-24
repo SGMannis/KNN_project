@@ -13,7 +13,9 @@ DEFAULT_IMAGE_DIR = "data/project-38-at-2026-02-24-13-47-846604c7/images/"
 DEFAULT_OUTPUT_DIR = "out_vis/"
 COLOR_WARNING = (255, 0, 255) 
 
+# Global counters/trackers
 missing_counter = 0
+current_file_has_error = False # Reset this for every image
 DEFAULT_FONT_SIZE = 24
 
 HIERARCHY_PALETTE = {
@@ -71,9 +73,7 @@ def parse_arguments():
     parser.add_argument("-j", "--json_dir", type=str, default=DEFAULT_JSON_DIR)
     parser.add_argument("-i", "--image_dir", type=str, default=DEFAULT_IMAGE_DIR)
     parser.add_argument("-o", "--output_dir", type=str, default=DEFAULT_OUTPUT_DIR)
-
     parser.add_argument("-v", "--verbose", action="store_true", help="Print status for every processed file")
-
     parser.add_argument("--p_bbox", action="store_true", default=True)
     parser.add_argument("--p_text", action="store_true", default=False)
     parser.add_argument("--p_line", action="store_true", default=True)
@@ -91,12 +91,11 @@ def get_level_color(field_name, level):
     return base_color
 
 def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, level=0):
-    global missing_counter
+    global missing_counter, current_file_has_error
     fields = ["name", "chapter_number", "page_number", "description"]
     centers_left = []
     centers_right = []
-    current_width = 4 if level == 0 else 2
-
+    
     for field in fields:
         bbox_key = f"{field}_bbox"
         bbox = chapter.get(bbox_key)
@@ -107,10 +106,11 @@ def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, level=0):
         if bbox and len(bbox) == 2:
             if is_missing:
                 missing_counter += 1
+                current_file_has_error = True # Flag this file for the 'error_' prefix
 
             p1_l = (int(bbox[0][0]), int(bbox[0][1]))
             p2_l = (int(bbox[1][0]), int(bbox[1][1]))
-            box_w = p2_l[0] - p1_l[0] # Max width for text
+            box_w = p2_l[0] - p1_l[0]
 
             p1_r = (p1_l[0] + x_offset, p1_l[1])
             p2_r = (p2_l[0] + x_offset, p2_l[1])
@@ -120,10 +120,14 @@ def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, level=0):
             
             field_color = COLOR_WARNING if is_missing else get_level_color(field, level)
             
+            # controlling border thickness
+            rect_width = 6 if is_missing else (4 if level == 0 else 2)
+            
             if args.p_bbox:
-                draw_obj.rectangle([p1_l, p2_l], outline=field_color, fill=field_color if is_missing else None, width=current_width)
+                # fill is now always None so we can see what is underneath
+                draw_obj.rectangle([p1_l, p2_l], outline=field_color, fill=None, width=rect_width)
             if args.e_bbox:
-                draw_obj.rectangle([p1_r, p2_r], outline=field_color, fill=field_color if is_missing else None, width=current_width)
+                draw_obj.rectangle([p1_r, p2_r], outline=field_color, fill=None, width=rect_width)
             
             txt = f"[{level}] {field_text}" if field == "name" and not is_missing else str(field_text)
             if is_missing: txt = "MISSING"
@@ -140,24 +144,23 @@ def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, level=0):
         centers_right.sort(key=lambda p: p[0])
         for i in range(len(centers_left) - 1):
             if args.p_line:
-                draw_obj.line([centers_left[i], centers_left[i+1]], fill=line_color, width=current_width)
+                draw_obj.line([centers_left[i], centers_left[i+1]], fill=line_color, width=2)
             if args.e_line:
-                draw_obj.line([centers_right[i], centers_right[i+1]], fill=line_color, width=current_width)
+                draw_obj.line([centers_right[i], centers_right[i+1]], fill=line_color, width=2)
 
     for sub in chapter.get("subchapters", []):
         draw_chapter_recursive(draw_obj, font, sub, x_offset, args, level + 1)
 
 def main():
+    global current_file_has_error
     print("="*30)
     print(f"VISUALIZATION SCRIPT")
     print("="*30+"\n")
 
-    print("Parsing arguments...")
     args = parse_arguments()
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    print("Loading system font...")
     font_path = get_system_font()
     try:
         font = ImageFont.truetype(font_path, DEFAULT_FONT_SIZE) if font_path else ImageFont.load_default()
@@ -165,12 +168,12 @@ def main():
         font = ImageFont.load_default()
 
     json_files = glob.glob(os.path.join(args.json_dir, "*.json"))
-    
-    processed_count = 0 # success counter
+    processed_count = 0
 
-    print(f"Found {len(json_files)} JSON files.")
-    print("Processing files...")
+    print(f"Found {len(json_files)} JSON files. Processing...")
     for json_path in json_files:
+        current_file_has_error = False # Reset error flag for new file
+        
         with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         
@@ -178,8 +181,6 @@ def main():
         img_path = os.path.join(args.image_dir, base_name + ".jpg")
         
         if not os.path.exists(img_path):
-            if args.verbose:
-                print(f"Warning: Image not found for {base_name}")
             continue
 
         orig_img = cv2.imread(img_path)
@@ -196,13 +197,16 @@ def main():
             draw_chapter_recursive(draw_obj, font, entry, x_offset=w, args=args, level=0)
             
         final_res = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-        cv2.imwrite(os.path.join(args.output_dir, base_name + "_vis.jpg"), final_res)
         
+        # Decide suffix based on whether draw_chapter_recursive flagged an error
+        suffix = "_error" if current_file_has_error else ""
+        save_name = f"{base_name}_vis{suffix}.jpg"
+        
+        cv2.imwrite(os.path.join(args.output_dir, save_name), final_res)
         processed_count += 1
         
-        # Only print if verbose mode is enabled
         if args.verbose:
-            print(f"Done: {base_name}")
+            print(f"Done: {save_name}")
 
     print("\n" + "="*30)
     print(f"VISUALIZATION COMPLETE")
