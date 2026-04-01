@@ -23,10 +23,10 @@ class Chapter(BaseModel):
     page_number_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
     description_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
 
-    name_conf: Optional[List[float]] = []
-    chapter_number_conf: Optional[List[float]] = []
-    page_number_conf: Optional[List[float]] = []
-    description_conf: Optional[List[float]] = []
+    # name_conf: Optional[List[float]] = []
+    # chapter_number_conf: Optional[List[float]] = []
+    # page_number_conf: Optional[List[float]] = []
+    # description_conf: Optional[List[float]] = []
 
     subchapters: Optional[List['Chapter']] = []
 
@@ -59,6 +59,11 @@ def get_confs_safe(detection) -> Optional[List[float]]:
 
 
 def group_items_on_page(matched_page):
+
+    # Access page data - AnnotatedPage instance
+    original_page = matched_page.detector_parser_page 
+
+
     # ==========================================
     # Preparation - map bounding box IDs to extracted data for quick lookup and computing page width
     # ==========================================
@@ -83,10 +88,6 @@ def group_items_on_page(matched_page):
 
     gutter_width = page_width * 0.05    
     n_of_pixels_spare = 15
-
-    # Access page data - AnnotatedPage instance
-    original_page = matched_page.detector_parser_page 
-
 
     # ==========================================
     # Sorting into buckets and filtering + column tags
