@@ -77,7 +77,8 @@ if os.path.exists(image_to_test):
         # Uložení výsledku
         output_dir = os.path.join(os.path.dirname(__file__), "out")
         os.makedirs(output_dir, exist_ok=True)
-        output_path = os.path.join(output_dir, "vystup_test.json")
+        output_filename = f"{os.path.splitext(os.path.basename(image_to_test))[0]}.json"
+        output_path = os.path.join(output_dir, output_filename)
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=4)
         print(f"Hotovo! Výsledek je v {output_path}")
