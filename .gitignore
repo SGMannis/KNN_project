@@ -1,4 +1,5 @@
 # CUSTOM
+tmp*
 .DS_Store
 data/
 out*/
