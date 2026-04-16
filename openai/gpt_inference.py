@@ -1,17 +1,17 @@
 import os
 import base64
 import json
-from typing import List, Optional, Tuple
+import argparse
+from typing import List, Optional
 from pydantic import BaseModel
 from openai import OpenAI
 
-# Definice struktury (přesně podle tvého zadání) [cite: 2026-02-26]
+# --- Definice struktury (Pydantic) ---
 class Chapter(BaseModel):
     name: Optional[str] = None
     chapter_number: Optional[str] = None
     page_number: Optional[str] = None
     description: Optional[str] = None
-    # Pydantic v Structured Outputs preferuje List před Tuple
     name_bbox: Optional[List[List[int]]] = None
     chapter_number_bbox: Optional[List[List[int]]] = None
     page_number_bbox: Optional[List[List[int]]] = None
@@ -21,20 +21,19 @@ class Chapter(BaseModel):
 class OCRResponse(BaseModel):
     chapters: List[Chapter]
 
-# Cesta k obrázku
-TEST_IMAGE_PATH = "../data/project-38-at-2026-02-24-13-47-846604c7/images/ff92e831-d4e2-43e2-8da8-444925b5f764.c9ee937d-f9a3-11e6-b230-00155d012102.287.None.svkhk.jpg"
+# Nastavení modelu
 MODEL = "gpt-4o-mini"
-
 client = OpenAI()
 
 def encode_image(image_path):
+    """Zakóduje obrázek do base64."""
     with open(image_path, "rb") as f:
         return base64.b64encode(f.read()).decode('utf-8')
 
 def extract_toc_structured(image_path):
+    """Pošle jeden obrázek do OpenAI."""
     base64_image = encode_image(image_path)
 
-    # Prompt upravený pro Structured Outputs a normalizaci [cite: 2026-02-26]
     PROMPT = """Analyze this table of contents. 
     1. Extract all chapters and subchapters.
     2. Hierarchy: Nest indented items under their parent chapter's 'subchapters' field.
@@ -44,7 +43,6 @@ def extract_toc_structured(image_path):
     4. Accuracy: Ensure bounding boxes tightly fit the text."""
 
     try:
-        # Použijeme .beta.chat.completions.parse pro automatické parsování [cite: 2026-02-26]
         response = client.beta.chat.completions.parse(
             model=MODEL,
             messages=[
@@ -59,29 +57,46 @@ def extract_toc_structured(image_path):
                     ],
                 }
             ],
-            response_format=OCRResponse, # Tady nutíme model dodržet tvou strukturu [cite: 2026-02-26]
+            response_format=OCRResponse,
         )
-
-        # Vrátíme jen čistý list kapitol pro tvou vizualizaci
         return response.choices[0].message.parsed.chapters
-
     except Exception as e:
-        print(f"Chyba: {e}")
+        print(f"Chyba při volání API: {e}")
         return None
 
-if __name__ == "__main__":
-    if os.path.exists(TEST_IMAGE_PATH):
-        print(f"Odesílám {TEST_IMAGE_PATH}...")
-        chapters = extract_toc_structured(TEST_IMAGE_PATH)
+def main():
+    # Nastavení argumentů příkazové řádky
+    parser = argparse.ArgumentParser(description="OpenAI OCR - Single Image Processing")
+    parser.add_argument("-i", "--input", type=str, required=True, help="Cesta k obrázku k analýze")
+    parser.add_argument("-o", "--output_dir", type=str, default="out", help="Složka pro uložení výsledků")
+    
+    args = parser.parse_args()
+
+    # Kontrola, zda soubor existuje
+    if not os.path.exists(args.input):
+        print(f"Chyba: Soubor '{args.input}' nebyl nalezen.")
+        return
+
+    print(f"Zpracovávám: {args.input}")
+    chapters = extract_toc_structured(args.input)
+    
+    if chapters:
+        # Převedeme Pydantic objekty na JSON
+        output_data = [c.model_dump() for c in chapters]
         
-        if chapters:
-            # Převedeme Pydantic objekty na čistý JSON list [cite: 2026-02-26]
-            output_data = [c.model_dump() for c in chapters]
+        # Vytvoření výstupní složky
+        os.makedirs(args.output_dir, exist_ok=True)
+        
+        # Vygenerování názvu JSONu podle původního obrázku
+        filename = os.path.basename(args.input).replace(".jpg", ".json").replace(".jpeg", ".json").replace(".png", ".json")
+        output_path = os.path.join(args.output_dir, filename)
+        
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(output_data, f, ensure_ascii=False, indent=4)
             
-            output_dir = "out"
-            os.makedirs(output_dir, exist_ok=True)
-            filename = os.path.basename(TEST_IMAGE_PATH).replace(".jpg", ".json")
-            
-            with open(os.path.join(output_dir, filename), "w", encoding="utf-8") as f:
-                json.dump(output_data, f, ensure_ascii=False, indent=4)
-            print(f"Hotovo! Uloženo do {output_dir}/{filename}")
+        print(f"Hotovo! Uloženo do: {output_path}")
+    else:
+        print("Nepodařilo se získat data z API.")
+
+if __name__ == "__main__":
+    main()
