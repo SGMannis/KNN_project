@@ -1,28 +1,37 @@
 #!/bin/bash
 
-# Název souboru, kde máš ty cesty k obrázkům
+# --- NASTAVENÍ ---
+PY_SCRIPT="gpt_inference.py" 
 INPUT_FILE="test_list.txt"
 
-# Kontrola, jestli seznam existuje
-if [ ! -f "$INPUT_FILE" ]; then
-    echo "Chyba: Soubor $INPUT_FILE nebyl nalezen!"
+# Cesty
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+PY_PATH="$SCRIPT_DIR/$PY_SCRIPT"
+
+echo "=== 1. KROK: SPUŠTĚNÍ OCR (LOOP) ==="
+
+# Kontrola souborů
+if [ ! -f "$PY_PATH" ]; then
+    echo "CHYBA: $PY_PATH nenalezen!"
     exit 1
 fi
 
-echo "=== START AUTOMATIZACE ==="
-
-# Čtení souboru řádek po řádku
+# Smyčka pro OCR
 while IFS= read -r line || [ -n "$line" ]; do
-    # Přeskočí prázdné řádky
     [[ -z "$line" ]] && continue
     
-    echo "Právě zpracovávám: $line"
+    echo ">>> Analyzuji: $line"
+    python "$PY_PATH" -i "$line"
     
-    # Spuštění tvého python skriptu
-    # -i je cesta k obrázku z řádku v textovém souboru
-    python gpt_inference.py -i "$line"
-    
-    echo "--------------------------"
 done < "$INPUT_FILE"
 
-echo "=== VŠECHNO HOTOVO ==="
+echo -e "\n=== 2. KROK: VIZUALIZACE ==="
+
+# Přesuneme se o složku výš (do rootu projektu)
+cd "$SCRIPT_DIR/.."
+echo "Aktuální složka: $(pwd)"
+
+# Spuštění vizualizace na celou složku najednou
+python visualize_matches.py -j openai/out -o openai/out_vis
+
+echo "=== VŠE HOTOVO ==="
