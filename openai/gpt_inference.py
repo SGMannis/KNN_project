@@ -20,21 +20,24 @@ def extract_toc_to_json(image_path):
 
     # Tvůj vyladěný prompt (mírně upravený pro GPT-4o)
     PROMPT = """Analyze this scanned book table of contents page.
-    Extract all entries and return a JSON list where each item has:
-    - "name": the chapter title text
-    - "chapter_number": chapter number if present (e.g. "1.", "a)", "I."), otherwise null
-    - "page_number": page number as string if present, otherwise null
-    - "description": descriptive subtext belonging to this entry if present, otherwise null
-    - "name_bbox": [[x1, y1], [x2, y2]] (pixel coordinates)
+    Extract all entries and return a RAW JSON ARRAY of objects. 
+    
+    Each object in the array must have this structure:
+    - "name": chapter title (string or null)
+    - "chapter_number": e.g. "XXII.", "1.", "a)" (string or null)
+    - "page_number": page number (string or null)
+    - "description": subtext (string or null)
+    - "name_bbox": [[x1, y1], [x2, y2]] (integers)
     - "chapter_number_bbox": [[x1, y1], [x2, y2]] or null
     - "page_number_bbox": [[x1, y1], [x2, y2]] or null
     - "description_bbox": [[x1, y1], [x2, y2]] or null
-    - "subchapters": recursive list of items in the same format
+    - "subchapters": list of objects with the same structure (empty list [] if none)
 
     Rules:
-    - If a chapter has indented entries below it, nest them in "subchapters"
-    - Preserve top-to-bottom reading order.
-    - IMPORTANT: Return ONLY raw JSON. No markdown formatting.
+    1. Return ONLY the JSON array (starting with [ and ending with ]).
+    2. Hierarchy: Indented items belong to the "subchapters" of the entry above them.
+    3. Use pixel coordinates for bboxes.
+    4. Do not include markdown formatting like ```json.
     """
 
     try:
@@ -61,7 +64,17 @@ def extract_toc_to_json(image_path):
 
         # Extrakce textu z odpovědi
         output_text = response.choices[0].message.content
-        return json.loads(output_text)
+        data = json.loads(output_text)
+
+        # Logika pro "rozbalení" listu:
+        if isinstance(data, dict):
+            # Pokud je v objektu jen jeden klíč a jeho obsahem je list, vezmeme ten list
+            # To pokryje "result", "chapters", "entries" atd.
+            for key in data:
+                if isinstance(data[key], list):
+                    return data[key]
+        
+        return data # Pokud už je to list, vrátí ho přímo
 
     except Exception as e:
         print(f"Error during API call: {e}")
