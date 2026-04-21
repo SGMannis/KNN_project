@@ -1,6 +1,6 @@
 # CUSTOM
 .DS_Store
-data/
+data*/
 out*/
 *.alto
 
