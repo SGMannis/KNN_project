@@ -128,10 +128,20 @@ def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, img_w, img_h
             field_color = COLOR_WARNING if is_missing else get_level_color(field, level)
             rect_width = 6 if is_missing else (4 if level == 0 else 2)
             
-            if args.p_bbox:
-                draw_obj.rectangle([p1_l, p2_l], outline=field_color, fill=None, width=rect_width)
-            if args.e_bbox:
-                draw_obj.rectangle([p1_r, p2_r], outline=field_color, fill=None, width=rect_width)
+            try:
+                # Zkusíme nakreslit to, co model poslal (bez oprav)
+                if args.p_bbox:
+                    draw_obj.rectangle([p1_l, p2_l], outline=field_color, fill=None, width=rect_width)
+                if args.e_bbox:
+                    draw_obj.rectangle([p1_r, p2_r], outline=field_color, fill=None, width=rect_width)
+            except ValueError:
+                # LLM POSLAL ŠPATNÉ SOUŘADNICE (x1 < x0 nebo y1 < y0)
+                current_file_has_error = True
+                print(f" [!] BBox Error: p1={p1_l}, p2={p2_l} - Invalid rectangle.")
+                
+                # Nakreslíme aspoň varovný bod v místě p1, aby bylo vidět, kde se model "sekl"
+                draw_obj.ellipse([p1_l[0]-5, p1_l[1]-5, p1_l[0]+5, p1_l[1]+5], fill=(255, 0, 0))
+                draw_obj.text(p1_l, "BBOX ERROR", fill=(255, 0, 0), font=font)
             
             txt = f"[{level}] {field_text}" if field == "name" and not is_missing else str(field_text)
             if is_missing: txt = "MISSING"
@@ -178,13 +188,30 @@ def main():
     for json_path in json_files:
         current_file_has_error = False 
         
-        with open(json_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            print(f"Error loading JSON {json_path}: {e}")
+            continue
         
+        # --- ROBUSTNÍ LOGIKA PRO HYBRIDNÍ FORMÁT ---
+        # Pokud je data slovník a obsahuje klíč "chapters", vezmeme ten. 
+        # Pokud je to už seznam, vezmeme ho přímo.
+        if isinstance(data, dict) and "chapters" in data:
+            entries_to_process = data["chapters"]
+        elif isinstance(data, list):
+            entries_to_process = data
+        else:
+            print(f"Warning: Unexpected JSON format in {json_path}. Skipping.")
+            continue
+        # ------------------------------------------
+
         base_name = os.path.splitext(os.path.basename(json_path))[0]
         img_path = os.path.join(args.image_dir, base_name + ".jpg")
         
         if not os.path.exists(img_path):
+            if args.verbose: print(f"Image not found: {img_path}")
             continue
 
         orig_img = cv2.imread(img_path)
@@ -197,8 +224,8 @@ def main():
         pil_img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
         draw_obj = ImageDraw.Draw(pil_img)
 
-        for entry in data:
-            # PŘEDÁVÁME w A h OBRÁZKU
+        # Teď iterujeme přes entries_to_process, což je VŽDY seznam kapitol
+        for entry in entries_to_process:
             draw_chapter_recursive(draw_obj, font, entry, x_offset=w, args=args, img_w=w, img_h=h, level=0)
             
         final_res = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
@@ -210,6 +237,11 @@ def main():
         
         if args.verbose:
             print(f"Done: {save_name}")
+
+    print("\n" + "="*30)
+    print(f"VISUALIZATION COMPLETE")
+    print(f"Files processed: {processed_count}")
+    print("="*30)
 
     print("\n" + "="*30)
     print(f"VISUALIZATION COMPLETE")
