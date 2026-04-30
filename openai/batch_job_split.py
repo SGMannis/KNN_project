@@ -6,6 +6,7 @@ from typing import List, Optional
 
 # --- Definice struktury (stejná) ---
 class Chapter(BaseModel):
+    model_config = {"extra": "forbid"}
     name: Optional[str] = None
     chapter_number: Optional[str] = None
     page_number: Optional[str] = None
@@ -17,6 +18,7 @@ class Chapter(BaseModel):
     subchapters: List['Chapter'] = []
 
 class OCRResponse(BaseModel):
+    model_config = {"extra": "forbid"}
     chapters: List[Chapter]
 
 INPUT_DIR = "img_trim"
@@ -41,6 +43,22 @@ PROMPT = """Analyze this scanned book table of contents page for visual groundin
     Accuracy: Bounding boxes must tightly fit the text.
     """
 
+def make_strict_schema(schema_dict):
+    """Rekurzivně připraví schéma pro OpenAI Strict Mode."""
+    if isinstance(schema_dict, dict):
+        if schema_dict.get("type") == "object":
+            schema_dict["additionalProperties"] = False
+            # OpenAI vyžaduje, aby VŠECHNY klíče z 'properties' byly v 'required'
+            if "properties" in schema_dict:
+                schema_dict["required"] = list(schema_dict["properties"].keys())
+        
+        for value in schema_dict.values():
+            make_strict_schema(value)
+    elif isinstance(schema_dict, list):
+        for item in schema_dict:
+            make_strict_schema(item)
+    return schema_dict
+
 def encode_image(image_path):
     with open(image_path, "rb") as f:
         return base64.b64encode(f.read()).decode('utf-8')
@@ -56,6 +74,11 @@ for i in range(0, len(all_files), CHUNK_SIZE):
     batch_num = (i // CHUNK_SIZE) + 1
     jsonl_filename = os.path.join(OUTPUT_BATCH_DIR, f"batch_req_{batch_num}.jsonl")
     
+    # Vygenerujeme základní schéma z Pydanticu
+    raw_schema = OCRResponse.model_json_schema()
+    # Upravíme ho, aby splňovalo OpenAI 'Strict' podmínky
+    strict_schema = make_strict_schema(raw_schema)
+
     print(f"Generuji: {jsonl_filename} ({len(chunk)} souborů)")
     
     with open(jsonl_filename, "w", encoding="utf-8") as f:
@@ -83,7 +106,7 @@ for i in range(0, len(all_files), CHUNK_SIZE):
                         "json_schema": {
                             "name": "ocr_response",
                             "strict": True,
-                            "schema": OCRResponse.model_json_schema()
+                            "schema": strict_schema
                         }
                     }
                 }
