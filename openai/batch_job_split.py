@@ -22,7 +22,7 @@ class OCRResponse(BaseModel):
 INPUT_DIR = "img_trim"
 OUTPUT_BATCH_DIR = "batch_files" # Složka pro JSONL soubory
 MODEL = "gpt-4o"
-CHUNK_SIZE = 120
+CHUNK_SIZE = 50
 
 PROMPT = """Analyze this scanned book table of contents page for visual grounding.
     Extract every entry into the provided JSON structure.
