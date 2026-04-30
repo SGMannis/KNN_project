@@ -22,7 +22,7 @@ class OCRResponse(BaseModel):
     chapters: List[Chapter]
 
 # Nastavení modelu
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-4o"
 client = OpenAI()
 
 def encode_image(image_path):
@@ -34,6 +34,7 @@ def extract_toc_structured(image_path):
     """Pošle jeden obrázek do OpenAI."""
     base64_image = encode_image(image_path)
 
+    # Prompt využívá normalizovaný grid 0-1000 pro vyšší přesnost
     PROMPT = """Analyze this scanned book table of contents page for visual grounding.
     Extract every entry into the provided JSON structure.
 
@@ -70,42 +71,58 @@ def extract_toc_structured(image_path):
         )
         return response.choices[0].message.parsed.chapters
     except Exception as e:
-        print(f"Chyba při volání API: {e}")
+        print(f"  [!] Chyba při volání API pro {os.path.basename(image_path)}: {e}")
         return None
 
 def main():
-    # Nastavení argumentů příkazové řádky
-    parser = argparse.ArgumentParser(description="OpenAI OCR - Single Image Processing")
-    parser.add_argument("-i", "--input", type=str, required=True, help="Cesta k obrázku k analýze")
+    parser = argparse.ArgumentParser(description="OpenAI OCR - Batch Image Processing")
+    parser.add_argument("-i", "--input", type=str, required=True, help="Cesta k obrázku nebo složce s obrázky")
     parser.add_argument("-o", "--output_dir", type=str, default="out", help="Složka pro uložení výsledků")
     
     args = parser.parse_args()
 
-    # Kontrola, zda soubor existuje
-    if not os.path.exists(args.input):
-        print(f"Chyba: Soubor '{args.input}' nebyl nalezen.")
+    # Identifikace souborů ke zpracování
+    image_extensions = ('.jpg', '.jpeg', '.png')
+    files_to_process = []
+
+    if os.path.isdir(args.input):
+        # Pokud je vstup složka, najdeme všechny obrázky
+        files_to_process = [
+            os.path.join(args.input, f) for f in os.listdir(args.input) 
+            if f.lower().endswith(image_extensions)
+        ]
+        files_to_process.sort() # Seřazení podle názvu
+        print(f"Nalezeno {len(files_to_process)} obrázků ve složce.")
+    elif os.path.isfile(args.input) and args.input.lower().endswith(image_extensions):
+        files_to_process = [args.input]
+    else:
+        print(f"Chyba: Vstup '{args.input}' není platný obrázek ani složka.")
         return
 
-    print(f"Zpracovávám: {args.input}")
-    chapters = extract_toc_structured(args.input)
-    
-    if chapters:
-        # Převedeme Pydantic objekty na JSON
-        output_data = [c.model_dump() for c in chapters]
+    # Vytvoření výstupní složky
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Hlavní smyčka zpracování
+    for i, img_path in enumerate(files_to_process, 1):
+        filename = os.path.basename(img_path)
+        print(f"[{i}/{len(files_to_process)}] Zpracovávám: {filename}")
         
-        # Vytvoření výstupní složky
-        os.makedirs(args.output_dir, exist_ok=True)
+        chapters = extract_toc_structured(img_path)
         
-        # Vygenerování názvu JSONu podle původního obrázku
-        filename = os.path.basename(args.input).replace(".jpg", ".json").replace(".jpeg", ".json").replace(".png", ".json")
-        output_path = os.path.join(args.output_dir, filename)
-        
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(output_data, f, ensure_ascii=False, indent=4)
+        if chapters:
+            output_data = [c.model_dump() for c in chapters]
             
-        print(f"Hotovo! Uloženo do: {output_path}")
-    else:
-        print("Nepodařilo se získat data z API.")
+            # Generování názvu JSONu
+            json_name = os.path.splitext(filename)[0] + ".json"
+            output_path = os.path.join(args.output_dir, json_name)
+            
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(output_data, f, ensure_ascii=False, indent=4)
+            print(f"  [OK] Uloženo do: {output_path}")
+        else:
+            print(f"  [SKIP] Nepodařilo se zpracovat {filename}")
+
+    print("\nHotovo! Všechny soubory byly zpracovány.")
 
 if __name__ == "__main__":
     main()
