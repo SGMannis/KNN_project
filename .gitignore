@@ -3,6 +3,7 @@ tmp*
 .DS_Store
 data/
 out*/
+in*/
 *.alto
 
 # Byte-compiled / optimized / DLL files
