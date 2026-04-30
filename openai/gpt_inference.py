@@ -34,23 +34,22 @@ def extract_toc_structured(image_path):
     """Pošle jeden obrázek do OpenAI."""
     base64_image = encode_image(image_path)
 
-    PROMPT = """Analyze this scanned book table of contents page.
+    PROMPT = """Analyze this scanned book table of contents page for visual grounding.
     Extract every entry into the provided JSON structure.
 
-    Rules for fields:
-    - "chapter_number": Extract ONLY the leading number or indicator (e.g., "1.", "I.", "A.", "Kapitola I."). If it's part of the line, it MUST be separated from the name.
-    - "name": The actual title of the chapter, EXCLUDING the chapter number.
+    Coordinate System:
+    - Use a normalized grid of 0-1000.
+    - Origin (0,0) is the top-left corner.
+    - Return coordinates as [top-left, bottom-right] integers: [[x1, y1], [x2, y2]].
+
+    Extraction Rules:
+    - "chapter_number": Extract ONLY the leading indicator (e.g., "1.", "I."). Must be separate from the name.
+    - "name": The actual title, EXCLUDING the chapter number.
     - "page_number": The page number as a string.
-    - "description": Any additional subtext or author name belonging to the entry.
-    
-    Hierarchy & Coordinates:
-    1. Nest indented items under their parent chapter's 'subchapters' field.
-    2. Provide ALL bounding boxes as [top-left, bottom-right] using normalized values (0-1000).
-       - 0,0 is top-left corner.
-       - 1000,1000 is bottom-right corner.
-    3. Accuracy: Ensure bounding boxes for 'chapter_number' and 'name' are distinct and do not overlap if possible.
-    
-    IMPORTANT: If a line starts with a number (e.g. "1. Úvod"), "1." goes to chapter_number and "Úvod" goes to name."""
+    - "subchapters": Nest indented items here.
+
+    Accuracy: Bounding boxes must tightly fit the text.
+    """
 
     try:
         response = client.beta.chat.completions.parse(
