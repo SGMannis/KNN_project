@@ -4,6 +4,7 @@ tmp*
 data/
 out*/
 in*/
+img_trim/
 *.alto
 
 # Byte-compiled / optimized / DLL files
