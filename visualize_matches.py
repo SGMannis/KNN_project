@@ -15,7 +15,7 @@ COLOR_WARNING = (255, 0, 255)
 
 # Global counters/trackers
 missing_counter = 0
-current_file_has_error = False # Reset this for every image
+current_file_has_error = False 
 DEFAULT_FONT_SIZE = 24
 
 HIERARCHY_PALETTE = {
@@ -42,11 +42,9 @@ def get_system_font():
     return None
 
 def wrap_text(text, font, max_width):
-    """Split text into lines that fit within max_width pixels."""
-    words = text.split(' ')
+    words = str(text).split(' ')
     lines = []
     current_line = []
-
     for word in words:
         test_line = ' '.join(current_line + [word])
         if font.getlength(test_line) <= max_width:
@@ -60,7 +58,6 @@ def wrap_text(text, font, max_width):
     return lines
 
 def draw_wrapped_text(draw_obj, position, text, font, fill, max_width):
-    """Draw text across multiple lines."""
     lines = wrap_text(text, font, max_width)
     x, y = position
     line_height = font.getbbox("Ay")[3] + 2 
@@ -73,7 +70,10 @@ def parse_arguments():
     parser.add_argument("-j", "--json_dir", type=str, default=DEFAULT_JSON_DIR)
     parser.add_argument("-i", "--image_dir", type=str, default=DEFAULT_IMAGE_DIR)
     parser.add_argument("-o", "--output_dir", type=str, default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("-v", "--verbose", action="store_true", help="Print status for every processed file")
+    parser.add_argument("-v", "--verbose", action="store_true")
+    # PŘIDANÝ ARGUMENT PRO NORMALIZACI
+    parser.add_argument("--normalized", action="store_true", help="Považovat souřadnice za 0-1000 místo pixelů")
+    
     parser.add_argument("--p_bbox", action="store_true", default=True)
     parser.add_argument("--p_text", action="store_true", default=False)
     parser.add_argument("--p_line", action="store_true", default=True)
@@ -90,7 +90,8 @@ def get_level_color(field_name, level):
         return tuple(int(c * factor) for c in base_color)
     return base_color
 
-def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, level=0):
+# PŘIDÁNY PARAMETRY img_w A img_h
+def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, img_w, img_h, level=0):
     global missing_counter, current_file_has_error
     fields = ["name", "chapter_number", "page_number", "description"]
     centers_left = []
@@ -106,11 +107,17 @@ def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, level=0):
         if bbox and len(bbox) == 2:
             if is_missing:
                 missing_counter += 1
-                current_file_has_error = True # Flag this file for the 'error_' prefix
+                current_file_has_error = True
 
-            p1_l = (int(bbox[0][0]), int(bbox[0][1]))
-            p2_l = (int(bbox[1][0]), int(bbox[1][1]))
-            box_w = p2_l[0] - p1_l[0]
+            # LOGIKA PŘEPOČTU
+            if args.normalized:
+                p1_l = (int(bbox[0][0] * img_w / 1000), int(bbox[0][1] * img_h / 1000))
+                p2_l = (int(bbox[1][0] * img_w / 1000), int(bbox[1][1] * img_h / 1000))
+            else:
+                p1_l = (int(bbox[0][0]), int(bbox[0][1]))
+                p2_l = (int(bbox[1][0]), int(bbox[1][1]))
+            
+            box_w = max(1, p2_l[0] - p1_l[0])
 
             p1_r = (p1_l[0] + x_offset, p1_l[1])
             p2_r = (p2_l[0] + x_offset, p2_l[1])
@@ -119,12 +126,9 @@ def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, level=0):
             centers_right.append(((p1_r[0] + p2_r[0]) // 2, (p1_r[1] + p2_r[1]) // 2))
             
             field_color = COLOR_WARNING if is_missing else get_level_color(field, level)
-            
-            # controlling border thickness
             rect_width = 6 if is_missing else (4 if level == 0 else 2)
             
             if args.p_bbox:
-                # fill is now always None so we can see what is underneath
                 draw_obj.rectangle([p1_l, p2_l], outline=field_color, fill=None, width=rect_width)
             if args.e_bbox:
                 draw_obj.rectangle([p1_r, p2_r], outline=field_color, fill=None, width=rect_width)
@@ -149,7 +153,7 @@ def draw_chapter_recursive(draw_obj, font, chapter, x_offset, args, level=0):
                 draw_obj.line([centers_right[i], centers_right[i+1]], fill=line_color, width=2)
 
     for sub in chapter.get("subchapters", []):
-        draw_chapter_recursive(draw_obj, font, sub, x_offset, args, level + 1)
+        draw_chapter_recursive(draw_obj, font, sub, x_offset, args, img_w, img_h, level + 1)
 
 def main():
     global current_file_has_error
@@ -172,7 +176,7 @@ def main():
 
     print(f"Found {len(json_files)} JSON files. Processing...")
     for json_path in json_files:
-        current_file_has_error = False # Reset error flag for new file
+        current_file_has_error = False 
         
         with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -194,11 +198,10 @@ def main():
         draw_obj = ImageDraw.Draw(pil_img)
 
         for entry in data:
-            draw_chapter_recursive(draw_obj, font, entry, x_offset=w, args=args, level=0)
+            # PŘEDÁVÁME w A h OBRÁZKU
+            draw_chapter_recursive(draw_obj, font, entry, x_offset=w, args=args, img_w=w, img_h=h, level=0)
             
         final_res = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-        
-        # Decide suffix based on whether draw_chapter_recursive flagged an error
         suffix = "_error" if current_file_has_error else ""
         save_name = f"{base_name}_vis{suffix}.jpg"
         
@@ -211,7 +214,6 @@ def main():
     print("\n" + "="*30)
     print(f"VISUALIZATION COMPLETE")
     print(f"Files processed: {processed_count}")
-    print(f"Total missing text fields found: {missing_counter}")
     print("="*30)
 
 if __name__ == "__main__":
