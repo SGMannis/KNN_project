@@ -40,7 +40,7 @@ def extract_toc_structured(image_path):
     Coordinate System:
     - Use a normalized grid of 0-1000.
     - Origin (0,0) is the top-left corner.
-    - Return coordinates as [top-left, bottom-right] integers: [[x1, y1], [x2, y2]].
+    - Return coordinates as [top-left, bottom-right] integers in [x, y] order: [[x1, y1], [x2, y2]].
 
     Extraction Rules:
     - "chapter_number": Extract ONLY the leading indicator (e.g., "1.", "I."). Must be separate from the name.
