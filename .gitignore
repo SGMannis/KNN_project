@@ -1,8 +1,13 @@
 # CUSTOM
+tmp*
 .DS_Store
 data*/
 out*/
+in*/
+img_trim/
 *.alto
+*.jsonl
+*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
