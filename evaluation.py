@@ -154,33 +154,46 @@ def eval_text(gt_texts, model_texts):
 def eval_bb_one_file(gt_boxes, pred_boxes, threshold=0.75):
     """ Evaluate bboxes of one category of one file """
 
-    # Edge cases
+    # Edge cases: Handle scenarios where one or both lists are empty
     if len(gt_boxes) == 0 and len(pred_boxes) == 0:
         return 0, 0, 0, 0.0  # (TP, FP, FN, sum_iou)
     if len(gt_boxes) == 0:
-        return 0, len(pred_boxes), 0, 0.0 # Všechno jsou FP (halucinace)
+        return 0, len(pred_boxes), 0, 0.0 # Everything is FP (hallucinations)
     if len(pred_boxes) == 0:
-        return 0, 0, len(gt_boxes), 0.0 # Všechno jsou FN (ztraceno)
+        return 0, 0, len(gt_boxes), 0.0 # Everything is FN (missing data)
 
+    # Convert lists to tensors for box_iou calculation
     gt_tensor = torch.tensor(gt_boxes, dtype=torch.float32)
     pred_tensor = torch.tensor(pred_boxes, dtype=torch.float32)
 
+    # Calculate IoU matrix between all GT and Predicted boxes
     iou_matrix = box_iou(gt_tensor, pred_tensor).numpy()
 
-    # Najde optimální dvojice (řádek, sloupec), aby byl celkový překryv co největší
-    row_ind, col_ind = linear_sum_assignment(iou_matrix, maximize=True)
+    # --- FIX: Clean the matrix ---
+    # Replace NaN or Inf values with 0.0. 
+    # Invalid entries occur if boxes have zero or negative area (degenerate boxes).
+    iou_matrix = np.nan_to_num(iou_matrix, nan=0.0, posinf=0.0, neginf=0.0)
+
+    try:
+        # Find the optimal assignment (row/column pairs) to maximize total IoU
+        row_ind, col_ind = linear_sum_assignment(iou_matrix, maximize=True)
+    except ValueError as e:
+        # Fallback if the matrix is still problematic
+        print(f" [!] linear_sum_assignment failed: {e}")
+        return 0, len(pred_boxes), len(gt_boxes), 0.0
 
     tp, sum_iou = 0, 0.0
 
-    # Vyhodnocení pomocí Thresholdu
+    # Evaluate matches based on the IoU threshold
     for r, c in zip(row_ind, col_ind):
         iou_val = iou_matrix[r, c]
         if iou_val >= threshold:
             tp += 1
             sum_iou += iou_val
 
-    fp = len(pred_boxes) - tp  # Boxy, které zbyly nebo měly malé IoU
-    fn = len(gt_boxes) - tp    # Boxy z GT, které model vůbec netrefil
+    # Final stats calculation
+    fp = len(pred_boxes) - tp  # Predicted boxes that didn't match any GT
+    fn = len(gt_boxes) - tp    # GT boxes that weren't detected correctly
 
     return tp, fp, fn, sum_iou
 
