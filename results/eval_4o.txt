@@ -1,0 +1,26 @@
+Directories: openai/out_trim_normalized openai/out_4o/
+Number of files: 1391
+Valid files ratio: 0.9985621854780733
+##################
+#### TEXT ####
+Names CER: 0.16614254664948055
+Chapter numbers CER: 0.23947631278538814
+Page numbers CER: 0.1099046125702339
+Descriptions CER: 0.951052899000734
+
+#### BBOXES ####
+Names bbox f1_score: 0.002348723654119538
+Names bbox mean iou: 0.7919955253601074
+Chapter numbers bbox f1_score: 0.0005736576411197799
+Chapter numbers bbox mean iou: 0.7819338440895081
+Page numbers bbox f1_score: 0.00044504773136918934
+Page numbers bbox mean iou: 0.7877779006958008
+Descriptions bbox f1_score: 0.002314814814814815
+Descriptions bbox mean iou: 0.7763023376464844
+
+#### JSON STRUCTURE ####
+Structure chapters f1_score: 0.00867705100780332
+Structure page number accuracy: 0.4789525070357204
+Structure chap number accuracy: 0.5619726975953898
+Structure description accuracy: 0.0
+

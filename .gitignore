@@ -7,7 +7,7 @@ in*/
 img_trim/
 *.alto
 *.jsonl
-*.txt
+openai/*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

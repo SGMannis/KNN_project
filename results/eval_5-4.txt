@@ -1,0 +1,52 @@
+Directories: openai/out_trim_normalized openai/out_5-4/
+Number of files: 399
+Valid files ratio: 0.9974937343358395
+##################
+#### TEXT ####
+Names CER: 0.08887556283893114
+Chapter numbers CER: 0.19216843234544723
+Page numbers CER: 0.05022787694644892
+Descriptions CER: 0.5602221789124927
+
+#### BBOXES ####
+Names bbox f1_score: 0.020249449743213497
+Names bbox mean iou: 0.8070294260978699
+Chapter numbers bbox f1_score: 0.004627681952040387
+Chapter numbers bbox mean iou: 0.7800791263580322
+Page numbers bbox f1_score: 0.006240499239939194
+Page numbers bbox mean iou: 0.7996526956558228
+Descriptions bbox f1_score: 0.0
+Descriptions bbox mean iou: 0.0
+
+#### JSON STRUCTURE ####
+Structure chapters f1_score: 0.026741903827281647
+Structure page number accuracy: 0.7049006183763029
+Structure chap number accuracy: 0.6125430765214466
+Structure description accuracy: 0.0
+
+Directories: openai/out_trim_normalized openai/out_5-4/
+Number of files: 399
+Valid files ratio: 0.9974937343358395
+##################
+#### TEXT ####
+Names CER: 0.08887556283893114
+Chapter numbers CER: 0.19216843234544723
+Page numbers CER: 0.05022787694644892
+Descriptions CER: 0.5602221789124927
+
+#### BBOXES ####
+Names bbox f1_score: 0.020249449743213497
+Names bbox mean iou: 0.8070294260978699
+Chapter numbers bbox f1_score: 0.004627681952040387
+Chapter numbers bbox mean iou: 0.7800791263580322
+Page numbers bbox f1_score: 0.006240499239939194
+Page numbers bbox mean iou: 0.7996526956558228
+Descriptions bbox f1_score: 0.0
+Descriptions bbox mean iou: 0.0
+
+#### JSON STRUCTURE ####
+Structure chapters f1_score: 0.026741903827281647
+Structure page number accuracy: 0.7049006183763029
+Structure chap number accuracy: 0.6125430765214466
+Structure description accuracy: 0.0
+
