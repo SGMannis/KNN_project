@@ -1,0 +1,26 @@
+Directories: /storage/brno2/home/xnehez01/KNN_project/data/jsons_test /storage/brno2/home/xnehez01/KNN_project/results/qwen3_2_20/trained/jsons
+Number of files: 111
+Valid files ratio: 0.918918918918919
+##################
+#### TEXT ####
+Names CER: 0.15996775308073247
+Chapter numbers CER: 0.3144570286475683
+Page numbers CER: 0.0962109955423477
+Descriptions CER: 0.689332766680833
+
+#### BBOXES ####
+Names bbox f1_score: 0.5252163533273648
+Names bbox mean iou: 0.8617952466011047
+Chapter numbers bbox f1_score: 0.2653316645807259
+Chapter numbers bbox mean iou: 0.82328861951828
+Page numbers bbox f1_score: 0.3482367758186398
+Page numbers bbox mean iou: 0.8315337896347046
+Descriptions bbox f1_score: 0.04347826086956522
+Descriptions bbox mean iou: 0.9713948965072632
+
+#### JSON STRUCTURE ####
+Structure chapters f1_score: 0.7272139625080801
+Structure page number accuracy: 0.8026194686802534
+Structure chap number accuracy: 0.8213217319486232
+Structure description accuracy: 0.0
+
