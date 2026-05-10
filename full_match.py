@@ -23,11 +23,6 @@ class Chapter(BaseModel):
     page_number_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
     description_bbox: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
 
-    # name_conf: Optional[List[float]] = []
-    # chapter_number_conf: Optional[List[float]] = []
-    # page_number_conf: Optional[List[float]] = []
-    # description_conf: Optional[List[float]] = []
-
     subchapters: Optional[List['Chapter']] = []
 
 
@@ -498,11 +493,6 @@ if __name__ == "__main__":
                 page_number_bbox=get_corner_points(page_number_det),
                 description_bbox=get_corner_points(description_det),
 
-                # name_conf=get_confs_safe(chapter_det),
-                # chapter_number_conf=get_confs_safe(chapter_number_det),
-                # page_number_conf=get_confs_safe(page_number_det),
-                # description_conf=get_confs_safe(description_det),
-
                 subchapters=[]
             )
 
@@ -521,12 +511,8 @@ if __name__ == "__main__":
                     name_bbox=get_corner_points(item_det),
                     chapter_number_bbox=get_corner_points(chapter_number_det),
                     page_number_bbox=get_corner_points(page_number_det),
-                    description_bbox=get_corner_points(subheading_det),
+                    description_bbox=get_corner_points(subheading_det)
 
-                    # name_conf=get_confs_safe(item_det),
-                    # chapter_number_conf=get_confs_safe(chapter_number_det),
-                    # page_number_conf=get_confs_safe(page_number_det),
-                    # description_conf=get_confs_safe(subheading_det)
                 )
                 chapter.subchapters.append(subchapter)
 
