@@ -5,6 +5,7 @@ data*/
 out*/
 in*/
 img_trim/
+graphs/
 *.alto
 *.jsonl
 openai/*.txt
