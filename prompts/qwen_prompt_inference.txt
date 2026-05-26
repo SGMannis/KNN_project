@@ -1,0 +1,33 @@
+Analyze this scanned book table of contents page.
+
+Extract all entries and return a JSON list where each item has:
+
+- "name": the chapter title text
+
+- "chapter_number": chapter number if present (e.g. "1.", "a)", "I."), otherwise null
+
+- "page_number": page number as string if present, otherwise null
+
+- "description": descriptive subtext belonging to this entry if present, otherwise null
+
+- "name_bbox": [[x1, y1], [x2, y2]] 
+
+- "chapter_number_bbox": [[x1, y1], [x2, y2]] or null if no chapter number
+
+- "page_number_bbox": [[x1, y1], [x2, y2]] or null if no page number
+
+- "description_bbox": [[x1, y1], [x2, y2]] or null if no description
+
+- "subchapters": list of subchapters in the same format, or empty list [] if none
+
+Rules:
+
+- If a chapter has indented entries below it, put them in "subchapters"
+
+- Subchapters follow the same structure recursively
+
+- If the table of contents is simple with no hierarchy, return a flat list with empty "subchapters"
+
+- Preserve the reading order from top to bottom
+
+IMPORTANT: Return ONLY the raw JSON array. Do NOT use markdown code blocks. Do NOT write ```json. Start your response directly with [ and end with ].

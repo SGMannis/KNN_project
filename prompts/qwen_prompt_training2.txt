@@ -1,0 +1,3 @@
+Extract all entries from the table of contents in this scanned book page.
+Return a JSON array where each element represents one entry
+with its text and bounding box coordinates in pixels

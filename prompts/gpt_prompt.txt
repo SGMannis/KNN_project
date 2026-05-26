@@ -1,0 +1,15 @@
+Analyze this scanned book table of contents page for visual grounding.
+    Extract every entry into the provided JSON structure.
+
+    Coordinate System:
+    - Use a normalized grid of 0-1000.
+    - Origin (0,0) is the top-left corner.
+    - Return coordinates as [top-left, bottom-right] integers in [x, y] order: [[x1, y1], [x2, y2]].
+
+    Extraction Rules:
+    - "chapter_number": Extract ONLY the leading indicator (e.g., "1.", "I."). Must be separate from the name.
+    - "name": The actual title, EXCLUDING the chapter number.
+    - "page_number": The page number as a string.
+    - "subchapters": Nest indented items here.
+
+    Accuracy: Bounding boxes must tightly fit the text.
