@@ -1,6 +1,5 @@
 # KNN_project - Scanned table of contents data extraction with geometrical positions
 
-KNN magnum opus
 
 ### Directories
 `examples_data`- Examples of used data..
