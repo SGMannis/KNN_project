@@ -35,11 +35,11 @@ python full_match.py -j data/my_custom_annotations.json -c data/my_ocr_files/ -o
 
 **3. Command Line Arguments:**
 
-| Argument | Description | Default |
-| --- | --- | --- |
-| `-j`, `--json_annotations` | Path to the exported JSON annotations file | `data/project-38-at-2026-03-04-11-19-c8d8673e.json` |
-| `-c`, `--ocr_dir` | Path to the OCR output directory | `data/digilinka_obsahy.alto` |
-| `-o`, `--output_dir` | Path to the output directory | `out/` |
+| Argument | Description |
+| --- | --- |
+| `-j`, `--json_annotations` | Path to the exported JSON annotations file |
+| `-c`, `--ocr_dir` | Path to the OCR output directory |
+| `-o`, `--output_dir` | Path to the output directory |
 
 
 
