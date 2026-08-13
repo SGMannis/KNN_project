@@ -1,0 +1,732 @@
+[
+    {
+        "name": "Účel ranného chovu drůbeže",
+        "chapter_number": null,
+        "page_number": "3",
+        "description": null,
+        "name_bbox": [
+            [
+                279,
+                1265
+            ],
+            [
+                974,
+                1329
+            ]
+        ],
+        "chapter_number_bbox": null,
+        "page_number_bbox": [
+            [
+                1776,
+                1276
+            ],
+            [
+                1821,
+                1326
+            ]
+        ],
+        "description_bbox": null,
+        "subchapters": []
+    },
+    {
+        "name": "Výběr vajec k líhnutí",
+        "chapter_number": null,
+        "page_number": "4",
+        "description": null,
+        "name_bbox": [
+            [
+                285,
+                1327
+            ],
+            [
+                815,
+                1390
+            ]
+        ],
+        "chapter_number_bbox": null,
+        "page_number_bbox": [
+            [
+                1774,
+                1337
+            ],
+            [
+                1821,
+                1387
+            ]
+        ],
+        "description_bbox": null,
+        "subchapters": []
+    },
+    {
+        "name": "Úprava hnízda",
+        "chapter_number": null,
+        "page_number": "5",
+        "description": null,
+        "name_bbox": [
+            [
+                275,
+                1400
+            ],
+            [
+                627,
+                1457
+            ]
+        ],
+        "chapter_number_bbox": null,
+        "page_number_bbox": [
+            [
+                1771,
+                1403
+            ],
+            [
+                1820,
+                1451
+            ]
+        ],
+        "description_bbox": null,
+        "subchapters": []
+    },
+    {
+        "name": "Líhnutí drůbeže",
+        "chapter_number": null,
+        "page_number": "9",
+        "description": null,
+        "name_bbox": [
+            [
+                274,
+                1462
+            ],
+            [
+                666,
+                1520
+            ]
+        ],
+        "chapter_number_bbox": null,
+        "page_number_bbox": [
+            [
+                1771,
+                1464
+            ],
+            [
+                1821,
+                1512
+            ]
+        ],
+        "description_bbox": null,
+        "subchapters": []
+    },
+    {
+        "name": "Opatrování vylíhlé drůbeže",
+        "chapter_number": null,
+        "page_number": "13",
+        "description": null,
+        "name_bbox": [
+            [
+                272,
+                1522
+            ],
+            [
+                927,
+                1584
+            ]
+        ],
+        "chapter_number_bbox": null,
+        "page_number_bbox": [
+            [
+                1748,
+                1528
+            ],
+            [
+                1820,
+                1579
+            ]
+        ],
+        "description_bbox": null,
+        "subchapters": [
+            {
+                "name": "Kuřata",
+                "chapter_number": "a)",
+                "page_number": "14",
+                "description": null,
+                "name_bbox": [
+                    [
+                        495,
+                        1592
+                    ],
+                    [
+                        664,
+                        1645
+                    ]
+                ],
+                "chapter_number_bbox": [
+                    [
+                        421,
+                        1594
+                    ],
+                    [
+                        477,
+                        1645
+                    ]
+                ],
+                "page_number_bbox": [
+                    [
+                        1750,
+                        1592
+                    ],
+                    [
+                        1816,
+                        1642
+                    ]
+                ],
+                "description_bbox": null,
+                "subchapters": []
+            },
+            {
+                "name": "Housata",
+                "chapter_number": "b)",
+                "page_number": "17",
+                "description": null,
+                "name_bbox": [
+                    [
+                        491,
+                        1653
+                    ],
+                    [
+                        691,
+                        1708
+                    ]
+                ],
+                "chapter_number_bbox": [
+                    [
+                        423,
+                        1650
+                    ],
+                    [
+                        476,
+                        1707
+                    ]
+                ],
+                "page_number_bbox": [
+                    [
+                        1749,
+                        1654
+                    ],
+                    [
+                        1814,
+                        1706
+                    ]
+                ],
+                "description_bbox": null,
+                "subchapters": []
+            },
+            {
+                "name": "Káčata",
+                "chapter_number": "c)",
+                "page_number": "19",
+                "description": null,
+                "name_bbox": [
+                    [
+                        485,
+                        1715
+                    ],
+                    [
+                        661,
+                        1771
+                    ]
+                ],
+                "chapter_number_bbox": [
+                    [
+                        419,
+                        1716
+                    ],
+                    [
+                        474,
+                        1773
+                    ]
+                ],
+                "page_number_bbox": [
+                    [
+                        1749,
+                        1718
+                    ],
+                    [
+                        1815,
+                        1769
+                    ]
+                ],
+                "description_bbox": null,
+                "subchapters": []
+            },
+            {
+                "name": "Krůťata",
+                "chapter_number": "d)",
+                "page_number": "20",
+                "description": null,
+                "name_bbox": [
+                    [
+                        487,
+                        1779
+                    ],
+                    [
+                        683,
+                        1835
+                    ]
+                ],
+                "chapter_number_bbox": [
+                    [
+                        421,
+                        1780
+                    ],
+                    [
+                        475,
+                        1832
+                    ]
+                ],
+                "page_number_bbox": [
+                    [
+                        1745,
+                        1783
+                    ],
+                    [
+                        1814,
+                        1836
+                    ]
+                ],
+                "description_bbox": null,
+                "subchapters": []
+            },
+            {
+                "name": "Perličky.",
+                "chapter_number": "c)",
+                "page_number": "21",
+                "description": null,
+                "name_bbox": [
+                    [
+                        484,
+                        1841
+                    ],
+                    [
+                        694,
+                        1899
+                    ]
+                ],
+                "chapter_number_bbox": [
+                    [
+                        422,
+                        1842
+                    ],
+                    [
+                        472,
+                        1899
+                    ]
+                ],
+                "page_number_bbox": [
+                    [
+                        1746,
+                        1846
+                    ],
+                    [
+                        1811,
+                        1895
+                    ]
+                ],
+                "description_bbox": null,
+                "subchapters": []
+            },
+            {
+                "name": "Pávi",
+                "chapter_number": "f)",
+                "page_number": "22",
+                "description": null,
+                "name_bbox": [
+                    [
+                        485,
+                        1905
+                    ],
+                    [
+                        602,
+                        1962
+                    ]
+                ],
+                "chapter_number_bbox": [
+                    [
+                        421,
+                        1905
+                    ],
+                    [
+                        475,
+                        1965
+                    ]
+                ],
+                "page_number_bbox": [
+                    [
+                        1744,
+                        1907
+                    ],
+                    [
+                        1809,
+                        1960
+                    ]
+                ],
+                "description_bbox": null,
+                "subchapters": []
+            },
+            {
+                "name": "Labutě",
+                "chapter_number": "g)",
+                "page_number": "23",
+                "description": null,
+                "name_bbox": [
+                    [
+                        490,
+                        1969
+                    ],
+                    [
+                        673,
+                        2028
+                    ]
+                ],
+                "chapter_number_bbox": [
+                    [
+                        410,
+                        1971
+                    ],
+                    [
+                        475,
+                        2028
+                    ]
+                ],
+                "page_number_bbox": [
+                    [
+                        1743,
+                        1974
+                    ],
+                    [
+                        1812,
+                        2024
+                    ]
+                ],
+                "description_bbox": null,
+                "subchapters": []
+            }
+        ]
+    },
+    {
+        "name": "Jakou drůbež máme chovati?",
+        "chapter_number": null,
+        "page_number": "24",
+        "description": null,
+        "name_bbox": [
+            [
+                276,
+                2032
+            ],
+            [
+                977,
+                2092
+            ]
+        ],
+        "chapter_number_bbox": null,
+        "page_number_bbox": [
+            [
+                1746,
+                2036
+            ],
+            [
+                1813,
+                2087
+            ]
+        ],
+        "description_bbox": null,
+        "subchapters": []
+    },
+    {
+        "name": "Slepice",
+        "chapter_number": null,
+        "page_number": "25",
+        "description": null,
+        "name_bbox": [
+            [
+                274,
+                2092
+            ],
+            [
+                457,
+                2151
+            ]
+        ],
+        "chapter_number_bbox": null,
+        "page_number_bbox": [
+            [
+                1744,
+                2100
+            ],
+            [
+                1810,
+                2151
+            ]
+        ],
+        "description_bbox": null,
+        "subchapters": [
+            {
+                "name": "Slepice pro vejce",
+                "chapter_number": "1.",
+                "page_number": "25",
+                "description": null,
+                "name_bbox": [
+                    [
+                        486,
+                        2162
+                    ],
+                    [
+                        917,
+                        2219
+                    ]
+                ],
+                "chapter_number_bbox": [
+                    [
+                        419,
+                        2163
+                    ],
+                    [
+                        469,
+                        2213
+                    ]
+                ],
+                "page_number_bbox": [
+                    [
+                        1742,
+                        2166
+                    ],
+                    [
+                        1811,
+                        2214
+                    ]
+                ],
+                "description_bbox": null,
+                "subchapters": []
+            },
+            {
+                "name": "Slepice pro vejce a chutné maso",
+                "chapter_number": "2.",
+                "page_number": "29",
+                "description": null,
+                "name_bbox": [
+                    [
+                        486,
+                        2224
+                    ],
+                    [
+                        1301,
+                        2283
+                    ]
+                ],
+                "chapter_number_bbox": [
+                    [
+                        420,
+                        2226
+                    ],
+                    [
+                        473,
+                        2278
+                    ]
+                ],
+                "page_number_bbox": [
+                    [
+                        1742,
+                        2228
+                    ],
+                    [
+                        1810,
+                        2277
+                    ]
+                ],
+                "description_bbox": null,
+                "subchapters": []
+            },
+            {
+                "name": "Slepice pro všechno i odchov kuřat",
+                "chapter_number": "3.",
+                "page_number": "33",
+                "description": null,
+                "name_bbox": [
+                    [
+                        481,
+                        2288
+                    ],
+                    [
+                        1337,
+                        2346
+                    ]
+                ],
+                "chapter_number_bbox": [
+                    [
+                        418,
+                        2289
+                    ],
+                    [
+                        471,
+                        2341
+                    ]
+                ],
+                "page_number_bbox": [
+                    [
+                        1742,
+                        2290
+                    ],
+                    [
+                        1807,
+                        2340
+                    ]
+                ],
+                "description_bbox": null,
+                "subchapters": []
+            }
+        ]
+    },
+    {
+        "name": "Husy",
+        "chapter_number": null,
+        "page_number": "37",
+        "description": null,
+        "name_bbox": [
+            [
+                269,
+                2356
+            ],
+            [
+                416,
+                2410
+            ]
+        ],
+        "chapter_number_bbox": null,
+        "page_number_bbox": [
+            [
+                1742,
+                2354
+            ],
+            [
+                1808,
+                2404
+            ]
+        ],
+        "description_bbox": null,
+        "subchapters": []
+    },
+    {
+        "name": "Kachny",
+        "chapter_number": null,
+        "page_number": "39",
+        "description": null,
+        "name_bbox": [
+            [
+                267,
+                2417
+            ],
+            [
+                455,
+                2470
+            ]
+        ],
+        "chapter_number_bbox": null,
+        "page_number_bbox": [
+            [
+                1742,
+                2420
+            ],
+            [
+                1809,
+                2470
+            ]
+        ],
+        "description_bbox": null,
+        "subchapters": []
+    },
+    {
+        "name": "Krůty",
+        "chapter_number": null,
+        "page_number": "43",
+        "description": null,
+        "name_bbox": [
+            [
+                269,
+                2479
+            ],
+            [
+                416,
+                2533
+            ]
+        ],
+        "chapter_number_bbox": null,
+        "page_number_bbox": [
+            [
+                1745,
+                2483
+            ],
+            [
+                1808,
+                2532
+            ]
+        ],
+        "description_bbox": null,
+        "subchapters": []
+    },
+    {
+        "name": "Perličky",
+        "chapter_number": null,
+        "page_number": "45",
+        "description": null,
+        "name_bbox": [
+            [
+                267,
+                2543
+            ],
+            [
+                462,
+                2596
+            ]
+        ],
+        "chapter_number_bbox": null,
+        "page_number_bbox": [
+            [
+                1745,
+                2547
+            ],
+            [
+                1808,
+                2595
+            ]
+        ],
+        "description_bbox": null,
+        "subchapters": []
+    },
+    {
+        "name": "Pávi",
+        "chapter_number": null,
+        "page_number": "47",
+        "description": null,
+        "name_bbox": [
+            [
+                266,
+                2605
+            ],
+            [
+                373,
+                2657
+            ]
+        ],
+        "chapter_number_bbox": null,
+        "page_number_bbox": [
+            [
+                1743,
+                2609
+            ],
+            [
+                1806,
+                2659
+            ]
+        ],
+        "description_bbox": null,
+        "subchapters": []
+    }
+]
